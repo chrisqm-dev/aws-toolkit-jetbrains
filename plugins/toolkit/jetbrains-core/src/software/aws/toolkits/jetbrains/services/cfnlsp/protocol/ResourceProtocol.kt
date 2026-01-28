@@ -3,6 +3,9 @@
 
 package software.aws.toolkits.jetbrains.services.cfnlsp.protocol
 
+import org.eclipse.lsp4j.CompletionItem
+import org.eclipse.lsp4j.TextDocumentIdentifier
+
 // Resource Types
 data class ResourceTypesResult(
     val resourceTypes: List<String>
@@ -26,4 +29,53 @@ data class ResourceSummary(
 
 data class ListResourcesResult(
     val resources: List<ResourceSummary>
+)
+
+// TODO: Resource State Operations
+enum class ResourceStatePurpose {
+    IMPORT,
+    CLONE
+}
+
+data class ResourceSelection(
+    val resourceType: String,
+    val resourceIdentifiers: List<String>
+)
+
+data class ResourceStateParams(
+    val textDocument: TextDocumentIdentifier,
+    val resourceSelections: List<ResourceSelection>? = null,
+    val purpose: ResourceStatePurpose,
+    val parentResourceType: String? = null
+)
+
+data class ResourceStateResult(
+    val completionItem: CompletionItem? = null,
+    val successfulImports: Map<String, List<String>>,
+    val failedImports: Map<String, List<String>>,
+    val warning: String? = null
+)
+
+data class SearchResourceParams(
+    val resourceType: String,
+    val identifier: String
+)
+
+data class SearchResourceResult(
+    val found: Boolean,
+    val resource: ResourceSummary? = null
+)
+
+data class RefreshResourcesParams(
+    val resources: List<ResourceRequest>
+)
+
+data class RefreshResourcesResult(
+    val resources: List<ResourceSummary>
+)
+
+data class ResourceStackManagementResult(
+    val isManaged: Boolean,
+    val stackName: String? = null,
+    val stackId: String? = null
 )
