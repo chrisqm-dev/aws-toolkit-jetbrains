@@ -8,8 +8,11 @@ import org.eclipse.lsp4j.jsonrpc.services.JsonRequest
 import org.eclipse.lsp4j.services.LanguageServer
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ListChangeSetsParams
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ListChangeSetsResult
+import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ListResourcesParams
+import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ListResourcesResult
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ListStacksParams
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ListStacksResult
+import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ResourceTypesResult
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.UpdateCredentialsParams
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.UpdateCredentialsResult
 import java.util.concurrent.CompletableFuture
@@ -35,4 +38,12 @@ interface CfnLspServer : LanguageServer {
 
     @JsonRequest("aws/cfn/stack/changeSet/list")
     fun listChangeSets(params: ListChangeSetsParams): CompletableFuture<ListChangeSetsResult>
+
+    // Resources: aws/cfn/resources
+
+    @JsonRequest("aws/cfn/resources/types")
+    fun listResourceTypes(): CompletableFuture<ResourceTypesResult>
+
+    @JsonRequest("aws/cfn/resources/list")
+    fun listResources(params: ListResourcesParams): CompletableFuture<ListResourcesResult>
 }
