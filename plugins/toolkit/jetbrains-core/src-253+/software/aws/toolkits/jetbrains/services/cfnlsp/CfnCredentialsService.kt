@@ -47,6 +47,11 @@ import javax.crypto.spec.SecretKeySpec
 @Service(Service.Level.PROJECT)
 internal class CfnCredentialsService(private val project: Project) : Disposable {
     private val encryptionKey: SecretKey = generateKey()
+    
+    // Injected for testing
+    internal var lspServerProvider: LspServerProvider = defaultLspServerProvider(project)
+    internal var connectionManagerProvider: () -> AwsConnectionManager = { AwsConnectionManager.getInstance(project) }
+    internal var regionManagerProvider: () -> CloudFormationRegionManager = { CloudFormationRegionManager.getInstance() }
 
     // Injected for testing
     internal var lspServerProvider: LspServerProvider = defaultLspServerProvider(project)
