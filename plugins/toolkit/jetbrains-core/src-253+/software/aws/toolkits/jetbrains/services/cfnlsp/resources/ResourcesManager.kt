@@ -15,21 +15,22 @@ import software.aws.toolkits.jetbrains.services.cfnlsp.LspServerProvider
 import software.aws.toolkits.jetbrains.services.cfnlsp.defaultLspServerProvider
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ListResourcesParams
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ResourceRequest
-import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ResourceSummary
+import java.util.concurrent.CompletableFuture
 
 typealias ResourcesChangeListener = (String, List<String>) -> Unit
 
 @Service(Service.Level.PROJECT)
 internal class ResourcesManager(private val project: Project) : Disposable {
     internal var lspServerProvider: LspServerProvider = defaultLspServerProvider(project)
-    
+
     private val resourcesByType = mutableMapOf<String, ResourceTypeData>()
+    private val loadingTypes = mutableSetOf<String>()
     private val listeners = mutableListOf<ResourcesChangeListener>()
 
     private data class ResourceTypeData(
         val resourceIdentifiers: List<String>,
         val nextToken: String? = null,
-        val loaded: Boolean = false
+        val loaded: Boolean = false,
     )
 
     fun addListener(listener: ResourcesChangeListener) {
@@ -49,6 +50,7 @@ internal class ResourcesManager(private val project: Project) : Disposable {
         resourcesByType[resourceType]?.loaded ?: false
 
     fun reload(resourceType: String) {
+        if (loadingTypes.contains(resourceType)) return
         loadResources(resourceType, loadMore = false)
     }
 
@@ -58,24 +60,7 @@ internal class ResourcesManager(private val project: Project) : Disposable {
         loadResources(resourceType, loadMore = true)
     }
 
-    fun searchResource(resourceType: String, identifier: String): CompletableFuture<Boolean> {
-        val server = lspServerProvider.getServer()
-        if (server == null) {
-            return CompletableFuture.completedFuture(false)
-        }
-
-        val params = ListResourcesParams(
-            resources = listOf(ResourceRequest(resourceType, null))
-        )
-
-        return server.sendRequest { lsp ->
-            val cfnServer = lsp as? CfnLspServer ?: return@sendRequest CompletableFuture.completedFuture(false)
-            cfnServer.listResources(params)
-        }.thenApply { result ->
-            val resourceSummary = result?.resources?.firstOrNull { it.typeName == resourceType }
-            resourceSummary?.resourceIdentifiers?.contains(identifier) ?: false
-        }
-    }
+    fun getLoadedResourceTypes(): Set<String> = resourcesByType.keys.toSet()
 
     fun clear(resourceType: String? = null) {
         if (resourceType != null) {
@@ -97,6 +82,10 @@ internal class ResourcesManager(private val project: Project) : Disposable {
             return
         }
 
+        if (!loadMore) {
+            loadingTypes.add(resourceType)
+        }
+
         LOG.info { "Loading resources for type $resourceType (loadMore=$loadMore)" }
 
         val currentData = resourcesByType[resourceType]
@@ -115,6 +104,7 @@ internal class ResourcesManager(private val project: Project) : Disposable {
 
             cfnServer.listResources(params)
                 .whenComplete { result, error ->
+                    loadingTypes.remove(resourceType)
                     if (error != null) {
                         LOG.warn(error) { "Failed to load resources for $resourceType" }
                         if (!loadMore) {
@@ -128,7 +118,7 @@ internal class ResourcesManager(private val project: Project) : Disposable {
                         val resourceSummary = result.resources.firstOrNull { it.typeName == resourceType }
                         if (resourceSummary != null) {
                             LOG.info { "Loaded ${resourceSummary.resourceIdentifiers.size} resources for $resourceType" }
-                            
+
                             val existingResources = if (loadMore) currentData?.resourceIdentifiers ?: emptyList() else emptyList()
                             val allResources = existingResources + resourceSummary.resourceIdentifiers
 
@@ -137,7 +127,7 @@ internal class ResourcesManager(private val project: Project) : Disposable {
                                 nextToken = resourceSummary.nextToken,
                                 loaded = true
                             )
-                            
+
                             notifyListeners(resourceType, allResources)
                         } else {
                             LOG.info { "No resources found for $resourceType" }

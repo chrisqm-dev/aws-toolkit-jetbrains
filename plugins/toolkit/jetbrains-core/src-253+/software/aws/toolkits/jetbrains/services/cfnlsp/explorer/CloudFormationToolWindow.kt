@@ -12,7 +12,11 @@ import com.intellij.openapi.components.service
 import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.Project
 import com.intellij.platform.lsp.api.LspServerManager
+import software.aws.toolkit.core.utils.getLogger
+import software.aws.toolkit.core.utils.info
 import software.aws.toolkit.jetbrains.ToolkitPlaces
+import software.aws.toolkits.jetbrains.services.cfnlsp.resources.ResourcesManager
+import software.aws.toolkits.jetbrains.services.cfnlsp.resources.ResourceTypesManager
 import software.aws.toolkits.jetbrains.core.explorer.AbstractExplorerTreeToolWindow
 import software.aws.toolkits.jetbrains.services.cfnlsp.server.CfnLspServerDescriptor
 import software.aws.toolkits.jetbrains.services.cfnlsp.server.CfnLspServerSupportProvider
@@ -25,15 +29,30 @@ internal class CloudFormationToolWindow(private val project: Project) : Abstract
     initialTreeExpandDepth = 1
 ) {
     override val actionPlace = ToolkitPlaces.CFN_TOOL_WINDOW
+    internal var suppressRefresh = false
 
     init {
         setupToolbar()
+
         StacksManager.getInstance(project).addListener {
+            refreshIfNotSuppressed()
+        }
+        ResourcesManager.getInstance(project).addListener { _, _ ->
+            refreshIfNotSuppressed()
+        }
+        ResourceTypesManager.getInstance(project).addListener {
+            refreshIfNotSuppressed()
+        }
+
+        ensureLspServerStarted()
+    }
+
+    private fun refreshIfNotSuppressed() {
+        if (!suppressRefresh) {
             runInEdt {
                 redrawContent()
             }
         }
-        ensureLspServerStarted()
     }
 
     private fun setupToolbar() {
@@ -56,6 +75,7 @@ internal class CloudFormationToolWindow(private val project: Project) : Abstract
 
     companion object {
         fun getInstance(project: Project): CloudFormationToolWindow = project.service()
+        private val LOG = getLogger<ResourcesManager>()
     }
 }
 
@@ -78,10 +98,23 @@ private class RegionComboBoxAction(private val project: Project) : ComboBoxActio
                                 if (region.id != currentRegion.id) {
                                     regionManager.setSelectedRegion(region)
                                     val stacksManager = StacksManager.getInstance(project)
-                                    stacksManager.clear()
-                                    software.aws.toolkits.jetbrains.services.cfnlsp.CfnCredentialsService.getInstance(project).sendCredentials()
-                                    // Reload stacks with new region
-                                    stacksManager.reload()
+                                    val resourcesManager = ResourcesManager.getInstance(project)
+                                    val toolWindow = CloudFormationToolWindow.getInstance(project)
+                                    
+                                    // Suppress redrawing content while all nodes are refreshing to prevent concurrent write issues on the tree
+                                    toolWindow.suppressRefresh = true
+                                    try {
+                                        stacksManager.clear()
+                                        resourcesManager.clear()
+                                        software.aws.toolkits.jetbrains.services.cfnlsp.CfnCredentialsService.getInstance(project).sendCredentials()
+                                        stacksManager.reload()
+                                    } finally {
+                                        toolWindow.suppressRefresh = false
+                                        // Single refresh at the end
+                                        runInEdt {
+                                            toolWindow.redrawContent()
+                                        }
+                                    }
                                 }
                             }
 
