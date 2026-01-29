@@ -16,7 +16,7 @@ import software.aws.toolkits.resources.AwsToolkitBundle.message
 internal class ResourcesNode(
     nodeProject: Project,
     private val resourceTypesManager: ResourceTypesManager,
-    private val resourcesManager: ResourcesManager
+    private val resourcesManager: ResourcesManager,
 ) : AbstractTreeNode<String>(nodeProject, "resources"), ActionGroupOnRightClick {
 
     override fun actionGroupName(): String = "aws.toolkit.cloudformation.resources.actions"
@@ -34,10 +34,8 @@ internal class ResourcesNode(
     override fun getChildren(): Collection<AbstractTreeNode<*>> {
         val nodes = mutableListOf<AbstractTreeNode<*>>()
 
-        // Add "Add Resource Type" node
         nodes.add(AddResourceTypeNode(project, resourceTypesManager))
 
-        // Add nodes for each selected resource type
         resourceTypesManager.getSelectedResourceTypes().forEach { typeName ->
             nodes.add(ResourceTypeNode(project, typeName, resourcesManager))
         }

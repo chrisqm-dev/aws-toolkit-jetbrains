@@ -13,7 +13,7 @@ class ResourceProtocolTest {
         val result = ResourceTypesResult(
             resourceTypes = listOf("AWS::EC2::Instance", "AWS::S3::Bucket")
         )
-        
+
         assertThat(result.resourceTypes).containsExactly("AWS::EC2::Instance", "AWS::S3::Bucket")
     }
 
@@ -24,7 +24,7 @@ class ResourceProtocolTest {
             resourceIdentifiers = listOf("i-1234567890abcdef0", "i-0987654321fedcba0"),
             nextToken = "next-page-token"
         )
-        
+
         assertThat(summary.typeName).isEqualTo("AWS::EC2::Instance")
         assertThat(summary.resourceIdentifiers).containsExactly("i-1234567890abcdef0", "i-0987654321fedcba0")
         assertThat(summary.nextToken).isEqualTo("next-page-token")
@@ -38,12 +38,12 @@ class ResourceProtocolTest {
                 ResourceRequest("AWS::S3::Bucket", null)
             )
         )
-        
+
         assertThat(paramsWithResources.resources).hasSize(2)
         assertThat(paramsWithResources.resources!![0].resourceType).isEqualTo("AWS::EC2::Instance")
         assertThat(paramsWithResources.resources!![0].nextToken).isEqualTo("token1")
         assertThat(paramsWithResources.resources!![1].nextToken).isNull()
-        
+
         val paramsWithoutResources = ListResourcesParams(resources = null)
         assertThat(paramsWithoutResources.resources).isNull()
     }
@@ -62,10 +62,10 @@ class ResourceProtocolTest {
             found = true,
             resource = ResourceSummary("AWS::EC2::Instance", listOf("i-123"), null)
         )
-        
+
         assertThat(foundResult.found).isTrue()
         assertThat(foundResult.resource).isNotNull()
-        
+
         val notFoundResult = SearchResourceResult(found = false, resource = null)
         assertThat(notFoundResult.found).isFalse()
         assertThat(notFoundResult.resource).isNull()

@@ -15,9 +15,6 @@
         <action id="aws.toolkit.cloudformation.stacks.refresh"
                 class="software.aws.toolkits.jetbrains.services.cfnlsp.explorer.actions.RefreshStacksAction"/>
 
-        <action id="aws.toolkit.cloudformation.stacks.load_more"
-                class="software.aws.toolkits.jetbrains.services.cfnlsp.explorer.actions.LoadMoreStacksAction"/>
-
         <!-- Base action group for Stacks node -->
         <group id="aws.toolkit.cloudformation.stacks.actions">
             <reference ref="aws.toolkit.cloudformation.stacks.refresh"/>
@@ -28,5 +25,26 @@
             <reference ref="aws.toolkit.cloudformation.stacks.load_more"/>
             <reference ref="aws.toolkit.cloudformation.stacks.refresh"/>
         </group>
+
+        <group id="aws.toolkit.cloudformation.resources.actions">
+            <reference ref="aws.toolkit.cloudformation.resources.refresh_all_loaded"/>
+        </group>
+
+        <group id="aws.toolkit.cloudformation.resources.type.actions">
+            <reference ref="aws.toolkit.cloudformation.resources.refresh_type"/>
+            <reference ref="aws.toolkit.cloudformation.resources.remove_type"/>
+        </group>
+
+        <action id="aws.toolkit.cloudformation.resources.refresh_type"
+                class="software.aws.toolkits.jetbrains.services.cfnlsp.actions.RefreshResourceTypeAction"
+                text="Refresh Resource Type"/>
+
+        <action id="aws.toolkit.cloudformation.resources.refresh_all_loaded"
+                class="software.aws.toolkits.jetbrains.services.cfnlsp.actions.RefreshAllLoadedResourcesAction"
+                text="Refresh All Loaded Resources"/>
+
+        <action id="aws.toolkit.cloudformation.resources.remove_type"
+                class="software.aws.toolkits.jetbrains.services.cfnlsp.actions.RemoveResourceTypeAction"
+                text="Remove Resource Type"/>
     </actions>
 </idea-plugin>

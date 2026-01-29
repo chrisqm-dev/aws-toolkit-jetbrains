@@ -16,14 +16,19 @@ import software.aws.toolkit.core.utils.warn
 import software.aws.toolkits.jetbrains.services.cfnlsp.CfnLspServer
 import software.aws.toolkits.jetbrains.services.cfnlsp.LspServerProvider
 import software.aws.toolkits.jetbrains.services.cfnlsp.defaultLspServerProvider
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.future.future
+import java.util.concurrent.CompletableFuture
 
 @Service(Service.Level.PROJECT)
 @State(name = "cfnResourceTypes", storages = [Storage("aws.xml", roamingType = RoamingType.DISABLED)])
 internal class ResourceTypesManager(private val project: Project) : PersistentStateComponent<ResourceTypesManager.State> {
     internal var lspServerProvider: LspServerProvider = defaultLspServerProvider(project)
-    
+
     private var state = State()
     private var availableTypes: List<String> = emptyList()
+    private var typesLoaded: Boolean = false
     private val listeners = mutableListOf<ResourceTypesChangeListener>()
 
     override fun getState(): State = state
@@ -35,6 +40,8 @@ internal class ResourceTypesManager(private val project: Project) : PersistentSt
 
     fun getAvailableResourceTypes(): List<String> = availableTypes.toList()
 
+    fun areTypesLoaded(): Boolean = typesLoaded
+
     fun getSelectedResourceTypes(): Set<String> = state.selectedTypes.toSet()
 
     fun addResourceType(typeName: String) {
@@ -45,27 +52,47 @@ internal class ResourceTypesManager(private val project: Project) : PersistentSt
     }
 
     fun removeResourceType(typeName: String) {
-        if (state.selectedTypes.remove(typeName)) {
-            notifyListeners()
+        if (typeName in state.selectedTypes) {
+            val server = lspServerProvider.getServer()
+            if (server != null) {
+                LOG.info { "Removing resource type from LSP server: $typeName" }
+                CoroutineScope(Dispatchers.IO).future {
+                    try {
+                        server.sendRequest { (it as CfnLspServer).removeResourceType(typeName) }
+                        LOG.info { "Successfully removed resource type: $typeName" }
+                        // Only remove from local state and notify if LSP call succeeded
+                        state.selectedTypes.remove(typeName)
+                        notifyListeners()
+                    } catch (e: Exception) {
+                        LOG.warn(e) { "Failed to remove resource type from LSP server: $typeName" }
+                        // Don't remove from local state or notify if LSP call failed
+                    }
+                }
+            } else {
+                LOG.warn { "No LSP server available to remove resource type: $typeName" }
+                // Don't remove if no server available
+            }
         }
     }
 
-    fun loadAvailableTypes() {
-        val server = lspServerProvider.getServer() ?: return
+    fun loadAvailableTypes(): CompletableFuture<Unit> {
+        val server = lspServerProvider.getServer()
+        if (server == null) {
+            return CompletableFuture.completedFuture(Unit)
+        }
 
         LOG.info { "Loading available resource types" }
-        server.sendNotification { lsp ->
-            val cfnServer = lsp as? CfnLspServer ?: return@sendNotification
-            cfnServer.listResourceTypes()
-                .whenComplete { result, error ->
-                    if (error != null) {
-                        LOG.warn(error) { "Failed to load resource types" }
-                    } else if (result != null) {
-                        LOG.info { "Loaded ${result.resourceTypes.size} resource types" }
-                        availableTypes = result.resourceTypes
-                        notifyListeners()
-                    }
-                }
+        
+        return CoroutineScope(Dispatchers.IO).future {
+            val result = server.sendRequest { (it as CfnLspServer).listResourceTypes() }
+            
+            if (result != null) {
+                LOG.info { "Loaded ${result.resourceTypes.size} resource types" }
+                availableTypes = result.resourceTypes
+                typesLoaded = true
+            } else {
+                LOG.warn { "Failed to load resource types - null result" }
+            }
         }
     }
 
@@ -74,7 +101,7 @@ internal class ResourceTypesManager(private val project: Project) : PersistentSt
     }
 
     data class State(
-        var selectedTypes: MutableSet<String> = mutableSetOf()
+        var selectedTypes: MutableSet<String> = mutableSetOf(),
     )
 
     companion object {
