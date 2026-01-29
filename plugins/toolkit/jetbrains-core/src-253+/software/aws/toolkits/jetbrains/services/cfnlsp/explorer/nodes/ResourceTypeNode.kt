@@ -3,48 +3,65 @@
 
 package software.aws.toolkits.jetbrains.services.cfnlsp.explorer.nodes
 
+import com.intellij.icons.AllIcons
 import com.intellij.ide.projectView.PresentationData
 import com.intellij.ide.util.treeView.AbstractTreeNode
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.ui.SimpleTextAttributes
 import icons.AwsIcons
-import software.aws.toolkits.jetbrains.core.explorer.nodes.ActionGroupOnRightClick
+import software.aws.toolkit.core.utils.error
+import software.aws.toolkit.core.utils.getLogger
+import software.aws.toolkit.core.utils.info
+import software.aws.toolkit.core.utils.warn
+import software.aws.toolkits.jetbrains.core.explorer.devToolsTab.nodes.AbstractActionTreeNode
+import software.aws.toolkits.jetbrains.services.cfnlsp.ui.ResourceTypeSelectionDialog
+import software.aws.toolkits.jetbrains.core.explorer.devToolsTab.nodes.ActionGroupOnRightClick
 import software.aws.toolkits.jetbrains.services.cfnlsp.resources.ResourcesManager
+import software.aws.toolkits.jetbrains.services.cfnlsp.stacks.StacksManager
+import java.awt.event.MouseEvent
 
 internal class ResourceTypeNode(
     nodeProject: Project,
-    private val resourceType: String,
-    private val resourcesManager: ResourcesManager
+    val resourceType: String,
+    private val resourcesManager: ResourcesManager,
 ) : AbstractTreeNode<String>(nodeProject, resourceType), ActionGroupOnRightClick {
-    
+
     override fun actionGroupName(): String = "aws.toolkit.cloudformation.resources.type.actions"
-    
+
+    override fun isAlwaysShowPlus(): Boolean = true
+
     override fun update(presentation: PresentationData) {
         presentation.addText(resourceType, SimpleTextAttributes.REGULAR_ATTRIBUTES)
         presentation.setIcon(AwsIcons.Resources.CLOUDFORMATION_STACK)
-        
-        val resources = resourcesManager.getCachedResources(resourceType)
-        if (resources != null) {
-            presentation.addText(" (${resources.size})", SimpleTextAttributes.GRAYED_ATTRIBUTES)
+
+        // Only show count if resources have been loaded (dropdown was expanded)
+        if (resourcesManager.isLoaded(resourceType)) {
+            val resources = resourcesManager.getCachedResources(resourceType)
+            if (resources != null) {
+                presentation.addText(" (${resources.size})", SimpleTextAttributes.GRAYED_ATTRIBUTES)
+            }
         }
     }
-    
+
     override fun getChildren(): Collection<AbstractTreeNode<*>> {
         if (!resourcesManager.isLoaded(resourceType)) {
+            // Trigger loading when this node is expanded
             resourcesManager.reload(resourceType)
-            return emptyList()
+            return listOf(LoadingResourcesNode(project, resourceType))
         }
-        
+
         val resources = resourcesManager.getResourceIdentifiers(resourceType)
-        
+
         if (resources.isEmpty()) {
             return listOf(NoResourcesNode(project, resourceType))
         }
-        
+
         val nodes = resources.map { identifier ->
             ResourceNode(project, resourceType, identifier)
         }
-        
+
         return if (resourcesManager.hasMore(resourceType)) {
             nodes + LoadMoreResourcesNode(project, resourceType, resourcesManager)
         } else {
@@ -53,16 +70,30 @@ internal class ResourceTypeNode(
     }
 }
 
+internal class LoadingResourcesNode(
+    nodeProject: Project,
+    private val resourceType: String,
+) : AbstractTreeNode<String>(nodeProject, "loading") {
+
+    override fun update(presentation: PresentationData) {
+        presentation.addText("Loading $resourceType resources...", SimpleTextAttributes.GRAYED_ATTRIBUTES)
+        presentation.setIcon(AllIcons.Process.Step_1)
+    }
+
+    override fun getChildren(): Collection<AbstractTreeNode<*>> = emptyList()
+    override fun isAlwaysLeaf(): Boolean = true
+}
+
 internal class NoResourcesNode(
     nodeProject: Project,
-    private val resourceType: String
+    private val resourceType: String,
 ) : AbstractTreeNode<String>(nodeProject, "no-resources") {
-    
+
     override fun update(presentation: PresentationData) {
         presentation.addText("No $resourceType resources found", SimpleTextAttributes.GRAYED_ATTRIBUTES)
-        presentation.setIcon(AwsIcons.General.SETTINGS)
+        presentation.setIcon(AllIcons.General.Settings)
     }
-    
+
     override fun getChildren(): Collection<AbstractTreeNode<*>> = emptyList()
     override fun isAlwaysLeaf(): Boolean = true
 }
@@ -70,19 +101,13 @@ internal class NoResourcesNode(
 internal class LoadMoreResourcesNode(
     nodeProject: Project,
     private val resourceType: String,
-    private val resourcesManager: ResourcesManager
-) : AbstractTreeNode<String>(nodeProject, "load-more") {
-    
-    override fun update(presentation: PresentationData) {
-        presentation.addText("Load More...", SimpleTextAttributes.LINK_ATTRIBUTES)
-        presentation.setIcon(AwsIcons.General.REFRESH)
-    }
-    
-    override fun onDoubleClick(): Boolean {
+    private val resourcesManager: ResourcesManager,
+) : AbstractActionTreeNode(nodeProject, "Load More...", AllIcons.General.Add) {
+
+    override fun onDoubleClick(event: MouseEvent) {
         resourcesManager.loadMoreResources(resourceType)
-        return true
     }
-    
+
     override fun getChildren(): Collection<AbstractTreeNode<*>> = emptyList()
     override fun isAlwaysLeaf(): Boolean = true
 }
@@ -90,56 +115,61 @@ internal class LoadMoreResourcesNode(
 internal class ResourceNode(
     nodeProject: Project,
     private val resourceType: String,
-    private val resourceIdentifier: String
+    private val resourceIdentifier: String,
 ) : AbstractTreeNode<String>(nodeProject, resourceIdentifier), ActionGroupOnRightClick {
-    
     override fun actionGroupName(): String = "aws.toolkit.cloudformation.resources.resource.actions"
-    
+
     override fun update(presentation: PresentationData) {
         presentation.addText(resourceIdentifier, SimpleTextAttributes.REGULAR_ATTRIBUTES)
-        presentation.setIcon(AwsIcons.Resources.GENERIC)
+        presentation.setIcon(AwsIcons.Resources.CLOUDFORMATION_STACK)
         presentation.tooltip = "$resourceType: $resourceIdentifier"
     }
-    
+
     override fun getChildren(): Collection<AbstractTreeNode<*>> = emptyList()
     override fun isAlwaysLeaf(): Boolean = true
 }
 
 internal class AddResourceTypeNode(
     nodeProject: Project,
-    private val resourceTypesManager: software.aws.toolkits.jetbrains.services.cfnlsp.resources.ResourceTypesManager
-) : AbstractTreeNode<String>(nodeProject, "add-resource-type") {
-    
-    override fun update(presentation: PresentationData) {
-        presentation.addText("Add Resource Type...", SimpleTextAttributes.LINK_ATTRIBUTES)
-        presentation.setIcon(AwsIcons.General.ADD)
+    private val resourceTypesManager: software.aws.toolkits.jetbrains.services.cfnlsp.resources.ResourceTypesManager,
+) : AbstractActionTreeNode(nodeProject, "Add Resource Type...", AllIcons.General.Add) {
+    companion object {
+        private val LOG = getLogger<AddResourceTypeNode>()
     }
-    
-    override fun onDoubleClick(): Boolean {
-        val resourceTypesManager = this.resourceTypesManager
-        
-        // Load available types if not already loaded
-        resourceTypesManager.loadAvailableTypes()
-        
-        val availableTypes = resourceTypesManager.getAvailableResourceTypes()
-        val selectedTypes = resourceTypesManager.getSelectedResourceTypes()
-        
-        val unselectedTypes = availableTypes.filter { it !in selectedTypes }
-        
-        if (unselectedTypes.isEmpty()) {
-            // TODO: Show message that all types are already added
-            return true
-        }
-        
-        val dialog = software.aws.toolkits.jetbrains.services.cfnlsp.ui.ResourceTypeSelectionDialog(project, unselectedTypes, selectedTypes)
-        if (dialog.showAndGet()) {
-            dialog.selectedResourceTypes.forEach { type ->
-                resourceTypesManager.addResourceType(type)
+
+    override fun onDoubleClick(event: MouseEvent) {
+        // Always load types (in case region changed)
+        resourceTypesManager.loadAvailableTypes().thenRun {
+            LOG.info { "loading completed, showing dialog" }
+            ApplicationManager.getApplication().invokeLater {
+                showDialog()
             }
         }
-        return true
     }
-    
+
+    private fun showDialog() {
+        val availableTypes = resourceTypesManager.getAvailableResourceTypes()
+        val selectedTypes = resourceTypesManager.getSelectedResourceTypes()
+        val unselectedTypes = availableTypes.filter { it !in selectedTypes }
+
+        if (unselectedTypes.isEmpty()) {
+            return
+        }
+
+        LOG.info { "starting dialog" }
+        try {
+            val dialog = ResourceTypeSelectionDialog(project, unselectedTypes, selectedTypes)
+            if (dialog.showAndGet()) {
+                dialog.selectedResourceTypes.forEach { type ->
+                    resourceTypesManager.addResourceType(type)
+                }
+                LOG.info { "finished adding resource types" }
+            }
+        } catch (e: Exception) {
+            LOG.error(e) { "Failed to show dialog" }
+        }
+    }
+
     override fun getChildren(): Collection<AbstractTreeNode<*>> = emptyList()
     override fun isAlwaysLeaf(): Boolean = true
 }

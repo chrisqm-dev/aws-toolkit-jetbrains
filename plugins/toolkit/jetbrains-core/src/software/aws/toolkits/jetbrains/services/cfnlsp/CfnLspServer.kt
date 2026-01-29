@@ -20,7 +20,6 @@ import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ResourceStateRes
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ResourceTypesResult
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.SearchResourceParams
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.SearchResourceResult
-import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.StackMgmtInfoResult
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.UpdateCredentialsParams
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.UpdateCredentialsResult
 import java.util.concurrent.CompletableFuture

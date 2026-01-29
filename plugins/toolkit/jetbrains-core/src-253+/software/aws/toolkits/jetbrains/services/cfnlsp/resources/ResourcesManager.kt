@@ -7,6 +7,10 @@ import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.future.future
 import software.aws.toolkit.core.utils.getLogger
 import software.aws.toolkit.core.utils.info
 import software.aws.toolkit.core.utils.warn
@@ -15,21 +19,24 @@ import software.aws.toolkits.jetbrains.services.cfnlsp.LspServerProvider
 import software.aws.toolkits.jetbrains.services.cfnlsp.defaultLspServerProvider
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ListResourcesParams
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ResourceRequest
-import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ResourceSummary
 
 typealias ResourcesChangeListener = (String, List<String>) -> Unit
 
 @Service(Service.Level.PROJECT)
-internal class ResourcesManager(private val project: Project) : Disposable {
+internal class ResourcesManager(
+    private val project: Project,
+    private val coroutineScope: CoroutineScope = CoroutineScope(Dispatchers.IO)
+) : Disposable {
     internal var lspServerProvider: LspServerProvider = defaultLspServerProvider(project)
-    
+
     private val resourcesByType = mutableMapOf<String, ResourceTypeData>()
+    private val loadingTypes = mutableSetOf<String>()
     private val listeners = mutableListOf<ResourcesChangeListener>()
 
     private data class ResourceTypeData(
         val resourceIdentifiers: List<String>,
         val nextToken: String? = null,
-        val loaded: Boolean = false
+        val loaded: Boolean = false,
     )
 
     fun addListener(listener: ResourcesChangeListener) {
@@ -49,6 +56,7 @@ internal class ResourcesManager(private val project: Project) : Disposable {
         resourcesByType[resourceType]?.loaded ?: false
 
     fun reload(resourceType: String) {
+        if (loadingTypes.contains(resourceType)) return
         loadResources(resourceType, loadMore = false)
     }
 
@@ -58,24 +66,7 @@ internal class ResourcesManager(private val project: Project) : Disposable {
         loadResources(resourceType, loadMore = true)
     }
 
-    fun searchResource(resourceType: String, identifier: String): CompletableFuture<Boolean> {
-        val server = lspServerProvider.getServer()
-        if (server == null) {
-            return CompletableFuture.completedFuture(false)
-        }
-
-        val params = ListResourcesParams(
-            resources = listOf(ResourceRequest(resourceType, null))
-        )
-
-        return server.sendRequest { lsp ->
-            val cfnServer = lsp as? CfnLspServer ?: return@sendRequest CompletableFuture.completedFuture(false)
-            cfnServer.listResources(params)
-        }.thenApply { result ->
-            val resourceSummary = result?.resources?.firstOrNull { it.typeName == resourceType }
-            resourceSummary?.resourceIdentifiers?.contains(identifier) ?: false
-        }
-    }
+    fun getLoadedResourceTypes(): Set<String> = resourcesByType.keys.toSet()
 
     fun clear(resourceType: String? = null) {
         if (resourceType != null) {
@@ -97,59 +88,61 @@ internal class ResourcesManager(private val project: Project) : Disposable {
             return
         }
 
+        if (!loadMore) {
+            loadingTypes.add(resourceType)
+        }
+
         LOG.info { "Loading resources for type $resourceType (loadMore=$loadMore)" }
 
         val currentData = resourcesByType[resourceType]
         val nextToken = if (loadMore) currentData?.nextToken else null
 
-        server.sendNotification { lsp ->
-            val cfnServer = lsp as? CfnLspServer
-            if (cfnServer == null) {
-                LOG.warn { "LSP server is not CfnLspServer: ${lsp::class.java}" }
-                return@sendNotification
-            }
+        coroutineScope.future {
+            try {
+                val params = ListResourcesParams(
+                    resources = listOf(ResourceRequest(resourceType, nextToken))
+                )
 
-            val params = ListResourcesParams(
-                resources = listOf(ResourceRequest(resourceType, nextToken))
-            )
+                val result = server.sendRequest { (it as CfnLspServer).listResources(params) }
+                
+                loadingTypes.remove(resourceType)
+                
+                if (result != null) {
+                    val resourceSummary = result.resources.firstOrNull { it.typeName == resourceType }
+                    if (resourceSummary != null) {
+                        LOG.info { "Loaded ${resourceSummary.resourceIdentifiers.size} resources for $resourceType" }
 
-            cfnServer.listResources(params)
-                .whenComplete { result, error ->
-                    if (error != null) {
-                        LOG.warn(error) { "Failed to load resources for $resourceType" }
-                        if (!loadMore) {
-                            resourcesByType[resourceType] = ResourceTypeData(
-                                resourceIdentifiers = emptyList(),
-                                nextToken = null,
-                                loaded = true
-                            )
-                        }
-                    } else if (result != null) {
-                        val resourceSummary = result.resources.firstOrNull { it.typeName == resourceType }
-                        if (resourceSummary != null) {
-                            LOG.info { "Loaded ${resourceSummary.resourceIdentifiers.size} resources for $resourceType" }
-                            
-                            val existingResources = if (loadMore) currentData?.resourceIdentifiers ?: emptyList() else emptyList()
-                            val allResources = existingResources + resourceSummary.resourceIdentifiers
+                        val existingResources = if (loadMore) currentData?.resourceIdentifiers ?: emptyList() else emptyList()
+                        val allResources = existingResources + resourceSummary.resourceIdentifiers
 
-                            resourcesByType[resourceType] = ResourceTypeData(
-                                resourceIdentifiers = allResources,
-                                nextToken = resourceSummary.nextToken,
-                                loaded = true
-                            )
-                            
-                            notifyListeners(resourceType, allResources)
-                        } else {
-                            LOG.info { "No resources found for $resourceType" }
-                            resourcesByType[resourceType] = ResourceTypeData(
-                                resourceIdentifiers = emptyList(),
-                                nextToken = null,
-                                loaded = true
-                            )
-                            notifyListeners(resourceType, emptyList())
-                        }
+                        resourcesByType[resourceType] = ResourceTypeData(
+                            resourceIdentifiers = allResources,
+                            nextToken = resourceSummary.nextToken,
+                            loaded = true
+                        )
+
+                        notifyListeners(resourceType, allResources)
+                    } else {
+                        LOG.info { "No resources found for $resourceType" }
+                        resourcesByType[resourceType] = ResourceTypeData(
+                            resourceIdentifiers = emptyList(),
+                            nextToken = null,
+                            loaded = true
+                        )
+                        notifyListeners(resourceType, emptyList())
                     }
                 }
+            } catch (error: Exception) {
+                loadingTypes.remove(resourceType)
+                LOG.warn(error) { "Failed to load resources for $resourceType" }
+                if (!loadMore) {
+                    resourcesByType[resourceType] = ResourceTypeData(
+                        resourceIdentifiers = emptyList(),
+                        nextToken = null,
+                        loaded = true
+                    )
+                }
+            }
         }
     }
 
