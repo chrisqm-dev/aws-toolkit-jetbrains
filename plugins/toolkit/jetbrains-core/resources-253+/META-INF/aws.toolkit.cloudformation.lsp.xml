@@ -31,6 +31,10 @@
                 class="software.aws.toolkits.jetbrains.services.cfnlsp.explorer.actions.RemoveResourceTypeAction"
                 text="Remove Resource Type"/>
 
+        <action id="aws.toolkit.cloudformation.resources.search"
+                class="software.aws.toolkits.jetbrains.services.cfnlsp.explorer.actions.SearchResourceAction"
+                text="Search Resource"/>
+
         <!-- Define groups after actions -->
         <group id="aws.toolkit.cloudformation.stacks.actions">
             <reference ref="aws.toolkit.cloudformation.stacks.refresh"/>
@@ -48,6 +52,7 @@
         <group id="aws.toolkit.cloudformation.resources.type.actions">
             <reference ref="aws.toolkit.cloudformation.resources.refresh_type"/>
             <reference ref="aws.toolkit.cloudformation.resources.remove_type"/>
+            <reference ref="aws.toolkit.cloudformation.resources.search"/>
         </group>
     </actions>
 </idea-plugin>

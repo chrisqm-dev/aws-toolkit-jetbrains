@@ -7,6 +7,7 @@ import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.ui.Messages
 import software.aws.toolkit.core.utils.getLogger
 import software.aws.toolkit.core.utils.info
 import software.aws.toolkit.core.utils.warn
@@ -93,5 +94,42 @@ class RefreshAllLoadedResourcesAction : AnAction() {
         loadedTypes.forEach { resourceType ->
             resourcesManager.reload(resourceType)
         }
+    }
+}
+
+class SearchResourceAction : AnAction(
+    message("cloudformation.resources.search"),
+    null,
+    AllIcons.Actions.Search
+) {
+    override fun getActionUpdateThread() = ActionUpdateThread.EDT
+
+    override fun update(e: AnActionEvent) {
+        // Only enable if a ResourceTypeNode is selected
+        val selectedNodes = e.getData(ExplorerTreeToolWindowDataKeys.SELECTED_NODES)
+        val hasResourceTypeNode = selectedNodes?.filterIsInstance<ResourceTypeNode>()?.isNotEmpty() == true
+        e.presentation.isEnabled = hasResourceTypeNode
+    }
+
+    override fun actionPerformed(e: AnActionEvent) {
+        val project = e.project ?: return
+        val resourcesManager = ResourcesManager.getInstance(project)
+        
+        // Get the selected ResourceTypeNode
+        val selectedNodes = e.getData(ExplorerTreeToolWindowDataKeys.SELECTED_NODES)
+        val resourceTypeNode = selectedNodes?.filterIsInstance<ResourceTypeNode>()?.firstOrNull() ?: return
+        
+        // Prompt user for resource identifier
+        val identifier = Messages.showInputDialog(
+            project,
+            message("cloudformation.resources.search.prompt", resourceTypeNode.resourceType),
+            message("cloudformation.resources.search.title"),
+            AllIcons.Actions.Search
+        ) ?: return
+        
+        if (identifier.isBlank()) return
+        
+        // Search for the resource
+        resourcesManager.searchResource(resourceTypeNode.resourceType, identifier.trim())
     }
 }

@@ -19,6 +19,8 @@ import software.aws.toolkits.jetbrains.services.cfnlsp.LspServerProvider
 import software.aws.toolkits.jetbrains.services.cfnlsp.defaultLspServerProvider
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ListResourcesParams
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ResourceRequest
+import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.SearchResourceParams
+import java.util.concurrent.CompletableFuture
 
 typealias ResourcesChangeListener = (String, List<String>) -> Unit
 
@@ -67,6 +69,56 @@ internal class ResourcesManager(
     }
 
     fun getLoadedResourceTypes(): Set<String> = resourcesByType.keys.toSet()
+
+    fun searchResource(resourceType: String, identifier: String): CompletableFuture<Boolean> {
+        val server = lspServerProvider.getServer()
+        if (server == null) {
+            LOG.warn { "No LSP server found for searching resources" }
+            return CompletableFuture.completedFuture(false)
+        }
+
+        LOG.info { "Searching for resource $identifier in type $resourceType" }
+
+        return coroutineScope.future {
+            try {
+                val params = SearchResourceParams(resourceType, identifier)
+                val result = server.sendRequest { (it as CfnLspServer).searchResource(params) }
+                
+                if (result?.found == true) {
+                    LOG.info { "Resource $identifier found in $resourceType" }
+                    
+                    // If we got the resource data back, add it directly to our cache
+                    if (result.resource != null) {
+                        val currentData = resourcesByType[resourceType]
+                        val existingResources = currentData?.resourceIdentifiers ?: emptyList()
+                        
+                        // Add the found resource if it's not already in the cache
+                        if (!existingResources.contains(identifier)) {
+                            val updatedResources = existingResources + identifier
+                            resourcesByType[resourceType] = ResourceTypeData(
+                                resourceIdentifiers = updatedResources,
+                                nextToken = currentData?.nextToken,
+                                loaded = true
+                            )
+                            notifyListeners(resourceType, updatedResources)
+                        }
+                    } else {
+                        // Fallback: if no resource data returned, just ensure type is loaded
+                        if (!isLoaded(resourceType)) {
+                            reload(resourceType)
+                        }
+                    }
+                    true
+                } else {
+                    LOG.info { "Resource $identifier not found in $resourceType" }
+                    false
+                }
+            } catch (error: Exception) {
+                LOG.warn(error) { "Failed to search for resource $identifier in $resourceType" }
+                false
+            }
+        }
+    }
 
     fun clear(resourceType: String? = null) {
         if (resourceType != null) {

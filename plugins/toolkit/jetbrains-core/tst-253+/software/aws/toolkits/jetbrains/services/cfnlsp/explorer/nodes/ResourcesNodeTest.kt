@@ -68,7 +68,7 @@ class ResourcesNodeTest {
 
         whenever(mockResourcesManager.isLoaded("AWS::EC2::Instance")).thenReturn(true)
         whenever(mockResourcesManager.getResourceIdentifiers("AWS::EC2::Instance")).thenReturn(
-            listOf("i-1234567890abcdef0", "i-0987654321fedcba0")
+            listOf("testResource1", "testResource2")
         )
         whenever(mockResourcesManager.hasMore("AWS::EC2::Instance")).thenReturn(false)
 
@@ -85,7 +85,7 @@ class ResourcesNodeTest {
 
         whenever(mockResourcesManager.isLoaded("AWS::EC2::Instance")).thenReturn(true)
         whenever(mockResourcesManager.getResourceIdentifiers("AWS::EC2::Instance")).thenReturn(
-            listOf("i-1234567890abcdef0")
+            listOf("testResource")
         )
         whenever(mockResourcesManager.hasMore("AWS::EC2::Instance")).thenReturn(true)
 

@@ -76,12 +76,64 @@ class ResourcesManagerTest {
 
     @Test
     fun `loadMoreResources does nothing when no LSP server`() {
-        val mockLspServer = mock<LspServer>()
         val manager = ResourcesManager(projectRule.project)
         manager.lspServerProvider = LspServerProvider { null }
 
+        // This should not throw an exception
         manager.loadMoreResources("AWS::EC2::Instance")
 
-        verify(mockLspServer, never()).sendNotification(any())
+        // Verify state remains unchanged
+        assertThat(manager.isLoaded("AWS::EC2::Instance")).isFalse()
+    }
+
+    @Test
+    fun `searchResource returns completed future when no LSP server`() {
+        val manager = ResourcesManager(projectRule.project)
+        manager.lspServerProvider = LspServerProvider { null }
+
+        val future = manager.searchResource("AWS::EC2::Instance", "testResource")
+
+        // Should complete immediately with false when no server
+        assertThat(future.isDone).isTrue()
+        assertThat(future.get()).isFalse()
+    }
+
+    @Test
+    fun `searchResource creates future when LSP server available`() = runTest {
+        val mockLspServer = mock<LspServer>()
+        val manager = ResourcesManager(projectRule.project, this)
+        
+        manager.lspServerProvider = LspServerProvider { mockLspServer }
+
+        val future = manager.searchResource("AWS::EC2::Instance", "testResource")
+
+        // The future should be created (may not be done yet due to async nature)
+        assertThat(future).isNotNull()
+    }
+
+    @Test
+    fun `searchResource adds found resource to cache`() = runTest {
+        val mockLspServer = mock<LspServer>()
+        val manager = ResourcesManager(projectRule.project, this)
+        
+        // Mock successful search result with resource data
+        val mockResourceSummary = mock<software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ResourceSummary>()
+        val mockResult = mock<software.aws.toolkits.jetbrains.services.cfnlsp.protocol.SearchResourceResult>()
+        whenever(mockResult.found).thenReturn(true)
+        whenever(mockResult.resource).thenReturn(mockResourceSummary)
+        whenever(mockLspServer.sendRequest(any<(Any) -> CompletableFuture<Any>>())).thenReturn(mockResult)
+
+        manager.lspServerProvider = LspServerProvider { mockLspServer }
+
+        // Initially no resources cached
+        assertThat(manager.getCachedResources("AWS::EC2::Instance")).isNull()
+
+        manager.searchResource("AWS::EC2::Instance", "testResource")
+        testScheduler.advanceUntilIdle()
+
+        // Resource should now be in cache
+        val cachedResources = manager.getResourceIdentifiers("AWS::EC2::Instance")
+        assertThat(cachedResources).contains("testResource")
+        assertThat(manager.isLoaded("AWS::EC2::Instance")).isTrue()
     }
 }
