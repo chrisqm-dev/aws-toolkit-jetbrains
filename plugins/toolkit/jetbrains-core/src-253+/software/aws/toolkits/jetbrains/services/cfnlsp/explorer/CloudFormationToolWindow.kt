@@ -12,7 +12,11 @@ import com.intellij.openapi.components.service
 import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.Project
 import com.intellij.platform.lsp.api.LspServerManager
+import software.aws.toolkit.core.utils.getLogger
+import software.aws.toolkit.core.utils.info
 import software.aws.toolkit.jetbrains.ToolkitPlaces
+import software.aws.toolkits.jetbrains.services.cfnlsp.resources.ResourcesManager
+import software.aws.toolkits.jetbrains.services.cfnlsp.resources.ResourceTypesManager
 import software.aws.toolkits.jetbrains.core.explorer.AbstractExplorerTreeToolWindow
 import software.aws.toolkits.jetbrains.services.cfnlsp.server.CfnLspServerDescriptor
 import software.aws.toolkits.jetbrains.services.cfnlsp.server.CfnLspServerSupportProvider
@@ -29,6 +33,7 @@ internal class CloudFormationToolWindow(private val project: Project) : Abstract
 
     init {
         setupToolbar()
+
         StacksManager.getInstance(project).addListener {
             runInEdt {
                 redrawContent()
@@ -39,6 +44,17 @@ internal class CloudFormationToolWindow(private val project: Project) : Abstract
                 redrawContent()
             }
         }
+        ResourcesManager.getInstance(project).addListener { _, _ ->
+            runInEdt {
+                redrawContent()
+            }
+        }
+        ResourceTypesManager.getInstance(project).addListener {
+            runInEdt {
+                redrawContent()
+            }
+        }
+
         ensureLspServerStarted()
     }
 
@@ -62,6 +78,7 @@ internal class CloudFormationToolWindow(private val project: Project) : Abstract
 
     companion object {
         fun getInstance(project: Project): CloudFormationToolWindow = project.service()
+        private val LOG = getLogger<ResourcesManager>()
     }
 }
 
@@ -84,9 +101,11 @@ private class RegionComboBoxAction(private val project: Project) : ComboBoxActio
                                 if (region.id != currentRegion.id) {
                                     regionManager.setSelectedRegion(region)
                                     val stacksManager = StacksManager.getInstance(project)
+                                    val resourcesManager = ResourcesManager.getInstance(project)
+                                    
                                     stacksManager.clear()
+                                    resourcesManager.clear()
                                     software.aws.toolkits.jetbrains.services.cfnlsp.CfnCredentialsService.getInstance(project).sendCredentials()
-                                    // Reload stacks with new region
                                     stacksManager.reload()
                                 }
                             }
