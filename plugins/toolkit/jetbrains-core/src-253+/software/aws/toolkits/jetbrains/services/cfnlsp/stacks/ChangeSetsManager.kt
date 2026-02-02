@@ -18,7 +18,7 @@ import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ListChangeSetsPa
 @Service(Service.Level.PROJECT)
 internal class ChangeSetsManager(private val project: Project) {
     internal var lspServerProvider: LspServerProvider = defaultLspServerProvider(project)
-    
+
     private val stackChangeSets = mutableMapOf<String, StackChangeSets>()
     private val loadedStacks = mutableSetOf<String>()
     private val listeners = mutableListOf<() -> Unit>()
