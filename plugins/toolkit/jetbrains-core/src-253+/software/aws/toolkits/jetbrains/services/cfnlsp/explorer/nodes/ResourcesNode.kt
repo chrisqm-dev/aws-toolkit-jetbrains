@@ -3,7 +3,6 @@
 
 package software.aws.toolkits.jetbrains.services.cfnlsp.explorer.nodes
 
-import com.intellij.icons.AllIcons
 import com.intellij.ide.projectView.PresentationData
 import com.intellij.ide.util.treeView.AbstractTreeNode
 import com.intellij.openapi.project.Project
@@ -24,7 +23,7 @@ internal class ResourcesNode(
     override fun update(presentation: PresentationData) {
         val selectedCount = resourceTypesManager.getSelectedResourceTypes().size
         val countText = if (selectedCount > 0) " ($selectedCount)" else ""
-        presentation.addText(message("cloudformation.explorer.resources"), SimpleTextAttributes.REGULAR_ATTRIBUTES)
+        presentation.addText(message("cloudformation.explorer.resources.node"), SimpleTextAttributes.REGULAR_ATTRIBUTES)
         presentation.addText(countText, SimpleTextAttributes.GRAY_ATTRIBUTES)
     }
 

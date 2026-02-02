@@ -15,7 +15,7 @@ import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
-import software.aws.toolkits.jetbrains.services.cfnlsp.CfnLspServer
+import software.aws.toolkits.jetbrains.services.cfnlsp.CfnLspServerProtocol
 import software.aws.toolkits.jetbrains.services.cfnlsp.LspServerProvider
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ResourceTypesResult
 import java.util.concurrent.CompletableFuture
@@ -50,14 +50,14 @@ class ResourceTypesManagerTest {
 
     @Test
     fun `loads available types from LSP server`() = runTest {
-        val mockCfnServer = mock<CfnLspServer>()
+        val mockCfnServer = mock<CfnLspServerProtocol>()
         val mockLspServer = mock<LspServer>()
         val manager = ResourceTypesManager(projectRule.project, this)
         
         val mockResult = ResourceTypesResult(listOf("AWS::EC2::Instance", "AWS::S3::Bucket"))
         whenever(mockCfnServer.listResourceTypes()).thenReturn(CompletableFuture.completedFuture(mockResult))
         whenever(mockLspServer.sendRequest(any<(Any) -> CompletableFuture<Any>>())).thenAnswer { invocation ->
-            val lambda = invocation.getArgument<(CfnLspServer) -> CompletableFuture<*>>(0)
+            val lambda = invocation.getArgument<(CfnLspServerProtocol) -> CompletableFuture<*>>(0)
             val future = lambda.invoke(mockCfnServer)
             future.get()
         }
@@ -74,13 +74,13 @@ class ResourceTypesManagerTest {
 
     @Test
     fun `removeResourceType sends request to LSP server`() = runTest {
-        val mockCfnServer = mock<CfnLspServer>()
+        val mockCfnServer = mock<CfnLspServerProtocol>()
         val mockLspServer = mock<LspServer>()
         val manager = ResourceTypesManager(projectRule.project, this)
         
         whenever(mockCfnServer.removeResourceType(any())).thenReturn(CompletableFuture.completedFuture(null))
         whenever(mockLspServer.sendRequest(any<(Any) -> CompletableFuture<Any>>())).thenAnswer { invocation ->
-            val lambda = invocation.getArgument<(CfnLspServer) -> CompletableFuture<*>>(0)
+            val lambda = invocation.getArgument<(CfnLspServerProtocol) -> CompletableFuture<*>>(0)
             val future = lambda.invoke(mockCfnServer)
             future.get()
         }
@@ -109,13 +109,13 @@ class ResourceTypesManagerTest {
 
     @Test
     fun `removeResourceType handles LSP server exception gracefully`() = runTest {
-        val mockCfnServer = mock<CfnLspServer>()
+        val mockCfnServer = mock<CfnLspServerProtocol>()
         val mockLspServer = mock<LspServer>()
         val manager = ResourceTypesManager(projectRule.project, this)
         
         whenever(mockCfnServer.removeResourceType(any())).thenReturn(CompletableFuture.failedFuture(RuntimeException("Test exception")))
         whenever(mockLspServer.sendRequest(any<(Any) -> CompletableFuture<Any>>())).thenAnswer { invocation ->
-            val lambda = invocation.getArgument<(CfnLspServer) -> CompletableFuture<*>>(0)
+            val lambda = invocation.getArgument<(CfnLspServerProtocol) -> CompletableFuture<*>>(0)
             val future = lambda.invoke(mockCfnServer)
             try {
                 future.get()
@@ -152,13 +152,13 @@ class ResourceTypesManagerTest {
 
     @Test
     fun `loadAvailableTypes handles null result gracefully`() = runTest {
-        val mockCfnServer = mock<CfnLspServer>()
+        val mockCfnServer = mock<CfnLspServerProtocol>()
         val mockLspServer = mock<LspServer>()
         val manager = ResourceTypesManager(projectRule.project, this)
         
         whenever(mockCfnServer.listResourceTypes()).thenReturn(CompletableFuture.completedFuture(null))
         whenever(mockLspServer.sendRequest(any<(Any) -> CompletableFuture<Any>>())).thenAnswer { invocation ->
-            val lambda = invocation.getArgument<(CfnLspServer) -> CompletableFuture<*>>(0)
+            val lambda = invocation.getArgument<(CfnLspServerProtocol) -> CompletableFuture<*>>(0)
             val future = lambda.invoke(mockCfnServer)
             future.get()
         }
@@ -194,13 +194,13 @@ class ResourceTypesManagerTest {
 
     @Test
     fun `listeners are notified when resource types are removed successfully`() = runTest {
-        val mockCfnServer = mock<CfnLspServer>()
+        val mockCfnServer = mock<CfnLspServerProtocol>()
         val mockLspServer = mock<LspServer>()
         val manager = ResourceTypesManager(projectRule.project, this)
         
         whenever(mockCfnServer.removeResourceType(any())).thenReturn(CompletableFuture.completedFuture(null))
         whenever(mockLspServer.sendRequest(any<(Any) -> CompletableFuture<Any>>())).thenAnswer { invocation ->
-            val lambda = invocation.getArgument<(CfnLspServer) -> CompletableFuture<*>>(0)
+            val lambda = invocation.getArgument<(CfnLspServerProtocol) -> CompletableFuture<*>>(0)
             val future = lambda.invoke(mockCfnServer)
             future.get()
         }
@@ -222,13 +222,13 @@ class ResourceTypesManagerTest {
 
     @Test
     fun `listeners are not notified when resource type removal fails`() = runTest {
-        val mockCfnServer = mock<CfnLspServer>()
+        val mockCfnServer = mock<CfnLspServerProtocol>()
         val mockLspServer = mock<LspServer>()
         val manager = ResourceTypesManager(projectRule.project, this)
         
         whenever(mockCfnServer.removeResourceType(any())).thenReturn(CompletableFuture.failedFuture(RuntimeException("Test exception")))
         whenever(mockLspServer.sendRequest(any<(Any) -> CompletableFuture<Any>>())).thenAnswer { invocation ->
-            val lambda = invocation.getArgument<(CfnLspServer) -> CompletableFuture<*>>(0)
+            val lambda = invocation.getArgument<(CfnLspServerProtocol) -> CompletableFuture<*>>(0)
             val future = lambda.invoke(mockCfnServer)
             try {
                 future.get()

@@ -17,7 +17,7 @@ import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
-import software.aws.toolkits.jetbrains.services.cfnlsp.CfnLspServer
+import software.aws.toolkits.jetbrains.services.cfnlsp.CfnLspServerProtocol
 import software.aws.toolkits.jetbrains.services.cfnlsp.LspServerProvider
 import software.aws.toolkits.jetbrains.services.cfnlsp.explorer.nodes.ResourceNode
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.ListResourcesParams
@@ -43,14 +43,14 @@ class ResourcesManagerTest {
 
     @Test
     fun `reload sends request to LSP server`() = runTest {
-        val mockCfnServer = mock<CfnLspServer>()
+        val mockCfnServer = mock<CfnLspServerProtocol>()
         val mockLspServer = mock<LspServer>()
         val manager = ResourcesManager(projectRule.project, this)
         
         val mockResult = mock<ListResourcesResult>()
         whenever(mockCfnServer.listResources(any())).thenReturn(CompletableFuture.completedFuture(mockResult))
         whenever(mockLspServer.sendRequest(any<(Any) -> CompletableFuture<Any>>())).thenAnswer { invocation ->
-            val lambda = invocation.getArgument<(CfnLspServer) -> CompletableFuture<*>>(0)
+            val lambda = invocation.getArgument<(CfnLspServerProtocol) -> CompletableFuture<*>>(0)
             lambda.invoke(mockCfnServer)
         }
 
@@ -80,7 +80,7 @@ class ResourcesManagerTest {
 
     @Test
     fun `searchResource adds found resource to cache`() = runTest {
-        val mockCfnServer = mock<CfnLspServer>()
+        val mockCfnServer = mock<CfnLspServerProtocol>()
         val mockLspServer = mock<LspServer>()
         val manager = ResourcesManager(projectRule.project, this)
         
@@ -88,7 +88,7 @@ class ResourcesManagerTest {
         val mockResult = SearchResourceResult(found = true, resource = mockResourceSummary)
         whenever(mockCfnServer.searchResource(any())).thenReturn(CompletableFuture.completedFuture(mockResult))
         whenever(mockLspServer.sendRequest(any<(Any) -> CompletableFuture<Any>>())).thenAnswer { invocation ->
-            val lambda = invocation.getArgument<(CfnLspServer) -> CompletableFuture<*>>(0)
+            val lambda = invocation.getArgument<(CfnLspServerProtocol) -> CompletableFuture<*>>(0)
             val future = lambda.invoke(mockCfnServer)
             future.get() // Return the actual result, not the CompletableFuture
         }
@@ -232,7 +232,7 @@ class ResourcesManagerTest {
 
     @Test
     fun `searchResource returns false when resource not found`() = runTest {
-        val mockCfnServer = mock<CfnLspServer>()
+        val mockCfnServer = mock<CfnLspServerProtocol>()
         val mockLspServer = mock<LspServer>()
         val manager = ResourcesManager(projectRule.project, this)
         
@@ -240,7 +240,7 @@ class ResourcesManagerTest {
         whenever(mockResult.found).thenReturn(false)
         whenever(mockCfnServer.searchResource(any())).thenReturn(CompletableFuture.completedFuture(mockResult))
         whenever(mockLspServer.sendRequest(any<(Any) -> CompletableFuture<Any>>())).thenAnswer { invocation ->
-            val lambda = invocation.getArgument<(CfnLspServer) -> CompletableFuture<*>>(0)
+            val lambda = invocation.getArgument<(CfnLspServerProtocol) -> CompletableFuture<*>>(0)
             lambda.invoke(mockCfnServer)
         }
         manager.lspServerProvider = LspServerProvider { mockLspServer }
@@ -284,7 +284,7 @@ class ResourcesManagerTest {
 
     @Test
     fun `getStackManagementInfo handles successful response`() = runTest {
-        val mockCfnServer = mock<CfnLspServer>()
+        val mockCfnServer = mock<CfnLspServerProtocol>()
         val mockLspServer = mock<LspServer>()
         val manager = ResourcesManager(projectRule.project, this)
         
@@ -296,7 +296,7 @@ class ResourcesManagerTest {
         )
         whenever(mockCfnServer.getStackManagementInfo(any())).thenReturn(CompletableFuture.completedFuture(mockResult))
         whenever(mockLspServer.sendRequest(any<(Any) -> CompletableFuture<Any>>())).thenAnswer { invocation ->
-            val lambda = invocation.getArgument<(CfnLspServer) -> CompletableFuture<*>>(0)
+            val lambda = invocation.getArgument<(CfnLspServerProtocol) -> CompletableFuture<*>>(0)
             lambda.invoke(mockCfnServer)
         }
         manager.lspServerProvider = LspServerProvider { mockLspServer }

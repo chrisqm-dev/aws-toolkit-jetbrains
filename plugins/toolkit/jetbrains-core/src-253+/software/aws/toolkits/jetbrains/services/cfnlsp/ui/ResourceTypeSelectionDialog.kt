@@ -32,7 +32,7 @@ internal class ResourceTypeSelectionDialog(
     private val allUnselectedTypes = availableTypes.filter { it !in selectedTypes }
 
     init {
-        title = message("cloudformation.resources.dialog.title")
+        title = message("cloudformation.explorer.resources.dialog.title")
         init()
         setupList()
         setupSearch()

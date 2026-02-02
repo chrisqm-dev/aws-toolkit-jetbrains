@@ -19,7 +19,7 @@ import software.aws.toolkits.jetbrains.services.cfnlsp.resources.ResourcesManage
 import software.aws.toolkits.resources.AwsToolkitBundle.message
 
 class RemoveResourceTypeAction : AnAction(
-    message("cloudformation.resources.remove_type"),
+    message("cloudformation.explorer.resources.remove_type"),
     null,
     AllIcons.General.Remove
 ) {
@@ -51,7 +51,7 @@ class RefreshResourceTypeAction : AnAction() {
     override fun getActionUpdateThread() = ActionUpdateThread.EDT
 
     override fun update(e: AnActionEvent) {
-        e.presentation.text = message("cloudformation.resources.refresh_type")
+        e.presentation.text = message("cloudformation.explorer.resources.refresh_type")
         e.presentation.icon = AllIcons.Actions.Refresh
     }
 
@@ -82,7 +82,7 @@ class RefreshAllLoadedResourcesAction : AnAction() {
     override fun getActionUpdateThread() = ActionUpdateThread.EDT
 
     override fun update(e: AnActionEvent) {
-        e.presentation.text = message("cloudformation.resources.refresh_all_loaded")
+        e.presentation.text = message("cloudformation.explorer.resources.refresh_all_loaded")
         e.presentation.icon = AllIcons.Actions.Refresh
     }
 
@@ -99,7 +99,7 @@ class RefreshAllLoadedResourcesAction : AnAction() {
 }
 
 class SearchResourceAction : AnAction(
-    message("cloudformation.resources.search"),
+    message("cloudformation.explorer.resources.search"),
     null,
     AllIcons.Actions.Search
 ) {
@@ -123,8 +123,8 @@ class SearchResourceAction : AnAction(
         // Prompt user for resource identifier
         val identifier = Messages.showInputDialog(
             project,
-            message("cloudformation.resources.search.prompt", resourceTypeNode.resourceType),
-            message("cloudformation.resources.search.title"),
+            message("cloudformation.explorer.resources.search.prompt", resourceTypeNode.resourceType),
+            message("cloudformation.explorer.resources.search.title"),
             AllIcons.Actions.Search
         ) ?: return
         
@@ -136,7 +136,7 @@ class SearchResourceAction : AnAction(
 }
 
 class ImportResourceStateAction : AnAction(
-    message("cloudformation.resources.import"),
+    message("cloudformation.explorer.resources.import"),
     null,
     AllIcons.Actions.Download
 ) {
@@ -160,7 +160,7 @@ class ImportResourceStateAction : AnAction(
 }
 
 class CloneResourceStateAction : AnAction(
-    message("cloudformation.resources.clone"),
+    message("cloudformation.explorer.resources.clone"),
     null,
     AllIcons.Actions.Copy
 ) {
@@ -184,7 +184,7 @@ class CloneResourceStateAction : AnAction(
 }
 
 class GetStackManagementInfoAction : AnAction(
-    message("cloudformation.resources.stack_info"),
+    message("cloudformation.explorer.resources.stack_info"),
     null,
     AllIcons.Actions.Properties
 ) {

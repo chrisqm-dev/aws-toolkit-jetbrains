@@ -20,7 +20,7 @@ import org.eclipse.lsp4j.TextDocumentIdentifier
 import software.aws.toolkit.core.utils.getLogger
 import software.aws.toolkit.core.utils.info
 import software.aws.toolkit.core.utils.warn
-import software.aws.toolkits.jetbrains.services.cfnlsp.CfnLspServer
+import software.aws.toolkits.jetbrains.services.cfnlsp.CfnLspServerProtocol
 import software.aws.toolkits.jetbrains.services.cfnlsp.LspServerProvider
 import software.aws.toolkits.jetbrains.services.cfnlsp.defaultLspServerProvider
 import software.aws.toolkits.jetbrains.services.cfnlsp.explorer.nodes.ResourceNode
@@ -97,7 +97,7 @@ internal class ResourcesManager(
         return coroutineScope.future {
             try {
                 val params = SearchResourceParams(resourceType, identifier)
-                val result = server.sendRequest { (it as CfnLspServer).searchResource(params) }
+                val result = server.sendRequest { (it as CfnLspServerProtocol).searchResource(params) }
                 
                 if (result?.found == true) {
                     LOG.info { "Resource $identifier found in $resourceType" }
@@ -170,7 +170,7 @@ internal class ResourcesManager(
                     resources = listOf(ResourceRequest(resourceType, nextToken))
                 )
 
-                val result = server.sendRequest { (it as CfnLspServer).listResources(params) }
+                val result = server.sendRequest { (it as CfnLspServerProtocol).listResources(params) }
                 
                 loadingTypes.remove(resourceType)
                 
@@ -234,7 +234,7 @@ internal class ResourcesManager(
         
         coroutineScope.future {
             try {
-                val result = server.sendRequest { (it as CfnLspServer).getStackManagementInfo(resourceNode.resourceIdentifier) }
+                val result = server.sendRequest { (it as CfnLspServerProtocol).getStackManagementInfo(resourceNode.resourceIdentifier) }
                 
                 LOG.info { "Stack management info result for ${resourceNode.resourceIdentifier}: $result" }
                 
@@ -249,7 +249,7 @@ internal class ResourcesManager(
                 LOG.warn(e) { "Failed to get stack management info for resource: ${resourceNode.resourceIdentifier}" }
                 ApplicationManager.getApplication().invokeLater {
                     notifyError(
-                        message("cloudformation.resources.stack_info.error"),
+                        message("cloudformation.explorer.resources.stack_info.error"),
                         e.message ?: "Unknown error"
                     )
                 }
@@ -259,22 +259,22 @@ internal class ResourcesManager(
 
     private fun showStackManagementInfo(result: ResourceStackManagementResult) {
         val messageText = if (result.managedByStack == true) {
-            message("cloudformation.resources.stack_info.managed", result.stackName ?: "Unknown")
+            message("cloudformation.explorer.resources.stack_info.managed", result.stackName ?: "Unknown")
         } else {
-            message("cloudformation.resources.stack_info.not_managed")
+            message("cloudformation.explorer.resources.stack_info.not_managed")
         }
         
         val actions = mutableListOf<AnAction>()
         
         if (result.managedByStack == true && result.stackName != null) {
-            actions.add(object : AnAction(message("cloudformation.resources.stack_info.copy_name")) {
+            actions.add(object : AnAction(message("cloudformation.explorer.resources.stack_info.copy_name")) {
                 override fun actionPerformed(e: AnActionEvent) {
                     CopyPasteManager.getInstance().setContents(StringSelection(result.stackName))
                 }
             })
             
             if (result.stackId != null) {
-                actions.add(object : AnAction(message("cloudformation.resources.stack_info.copy_arn")) {
+                actions.add(object : AnAction(message("cloudformation.explorer.resources.stack_info.copy_arn")) {
                     override fun actionPerformed(e: AnActionEvent) {
                         CopyPasteManager.getInstance().setContents(StringSelection(result.stackId))
                     }
@@ -283,7 +283,7 @@ internal class ResourcesManager(
         }
         
         notifyInfo(
-            message("cloudformation.resources.stack_info.title"),
+            message("cloudformation.explorer.resources.stack_info.title"),
             messageText,
             project,
             actions
@@ -327,7 +327,7 @@ internal class ResourcesManager(
                     purpose = purpose.value
                 )
 
-                val result = server.sendRequest { (it as CfnLspServer).getResourceState(params) }
+                val result = server.sendRequest { (it as CfnLspServerProtocol).getResourceState(params) }
                 
                 if (result != null) {
                     // Insert the completion item if provided

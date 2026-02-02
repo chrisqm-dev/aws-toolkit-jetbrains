@@ -13,7 +13,7 @@ import com.intellij.openapi.project.Project
 import software.aws.toolkit.core.utils.getLogger
 import software.aws.toolkit.core.utils.info
 import software.aws.toolkit.core.utils.warn
-import software.aws.toolkits.jetbrains.services.cfnlsp.CfnLspServer
+import software.aws.toolkits.jetbrains.services.cfnlsp.CfnLspServerProtocol
 import software.aws.toolkits.jetbrains.services.cfnlsp.LspServerProvider
 import software.aws.toolkits.jetbrains.services.cfnlsp.defaultLspServerProvider
 import kotlinx.coroutines.CoroutineScope
@@ -61,7 +61,7 @@ internal class ResourceTypesManager(
                 LOG.info { "Removing resource type from LSP server: $typeName" }
                 coroutineScope.future {
                     try {
-                        server.sendRequest { (it as CfnLspServer).removeResourceType(typeName) }
+                        server.sendRequest { (it as CfnLspServerProtocol).removeResourceType(typeName) }
                         LOG.info { "Successfully removed resource type: $typeName" }
                         // Only remove from local state and notify if LSP call succeeded
                         state.selectedTypes.remove(typeName)
@@ -87,7 +87,7 @@ internal class ResourceTypesManager(
         LOG.info { "Loading available resource types" }
         
         return coroutineScope.future {
-            val result = server.sendRequest { (it as CfnLspServer).listResourceTypes() }
+            val result = server.sendRequest { (it as CfnLspServerProtocol).listResourceTypes() }
             
             if (result != null) {
                 LOG.info { "Loaded ${result.resourceTypes.size} resource types" }

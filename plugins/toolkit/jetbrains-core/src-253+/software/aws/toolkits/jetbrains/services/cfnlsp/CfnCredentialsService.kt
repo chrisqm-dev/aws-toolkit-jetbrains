@@ -18,7 +18,9 @@ import com.nimbusds.jose.JWEHeader
 import com.nimbusds.jose.JWEObject
 import com.nimbusds.jose.Payload
 import com.nimbusds.jose.crypto.DirectEncrypter
+import software.aws.toolkits.jetbrains.services.cfnlsp.server.CfnLspServerSupportProvider
 import org.eclipse.lsp4j.DidChangeConfigurationParams
+import software.amazon.awssdk.auth.credentials.AwsSessionCredentials
 import software.aws.toolkit.core.utils.getLogger
 import software.aws.toolkit.core.utils.info
 import software.aws.toolkit.core.utils.warn
