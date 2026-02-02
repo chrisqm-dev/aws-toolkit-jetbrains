@@ -7,6 +7,8 @@ import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.openapi.ui.Messages
 import software.aws.toolkit.core.utils.getLogger
 import software.aws.toolkit.core.utils.info
@@ -14,9 +16,81 @@ import software.aws.toolkit.core.utils.warn
 import software.aws.toolkits.jetbrains.core.explorer.ExplorerTreeToolWindowDataKeys
 import software.aws.toolkits.jetbrains.services.cfnlsp.explorer.nodes.ResourceNode
 import software.aws.toolkits.jetbrains.services.cfnlsp.explorer.nodes.ResourceTypeNode
+import software.aws.toolkits.jetbrains.services.cfnlsp.explorer.nodes.ResourcesNode
 import software.aws.toolkits.jetbrains.services.cfnlsp.resources.ResourceTypesManager
 import software.aws.toolkits.jetbrains.services.cfnlsp.resources.ResourcesManager
+import software.aws.toolkits.jetbrains.services.cfnlsp.ui.ResourceTypeSelectionDialog
 import software.aws.toolkits.resources.AwsToolkitBundle.message
+import java.awt.datatransfer.StringSelection
+
+class AddResourceTypeAction : AnAction(
+    message("cloudformation.explorer.resources.add_type"),
+    null,
+    AllIcons.General.Add
+) {
+    override fun getActionUpdateThread() = ActionUpdateThread.EDT
+
+    override fun update(e: AnActionEvent) {
+        // Only enable if a ResourcesNode is selected
+        val selectedNodes = e.getData(ExplorerTreeToolWindowDataKeys.SELECTED_NODES)
+        val hasResourcesNode = selectedNodes?.filterIsInstance<ResourcesNode>()?.isNotEmpty() == true
+        e.presentation.isEnabled = hasResourcesNode
+    }
+
+    override fun actionPerformed(e: AnActionEvent) {
+        val project = e.project ?: return
+        val resourceTypesManager = ResourceTypesManager.getInstance(project)
+        
+        // Always load types (in case region changed)
+        resourceTypesManager.loadAvailableTypes().thenRun {
+            LOG.info { "loading completed, showing dialog" }
+            ApplicationManager.getApplication().invokeLater {
+                showDialog(project, resourceTypesManager)
+            }
+        }
+    }
+
+    private fun showDialog(project: com.intellij.openapi.project.Project, resourceTypesManager: ResourceTypesManager) {
+        val availableTypes = resourceTypesManager.getAvailableResourceTypes()
+        val selectedTypes = resourceTypesManager.getSelectedResourceTypes()
+        
+        if (availableTypes.isEmpty()) {
+            return
+        }
+
+        LOG.info { "starting dialog" }
+        try {
+            val dialog = ResourceTypeSelectionDialog(project, availableTypes, selectedTypes)
+            if (dialog.showAndGet()) {
+                // Handle both additions and removals
+                val newSelections = dialog.selectedResourceTypes.toSet()
+                val currentSelections = selectedTypes
+                
+                // Add new selections
+                newSelections.forEach { type ->
+                    if (type !in currentSelections) {
+                        resourceTypesManager.addResourceType(type)
+                    }
+                }
+                
+                // Remove deselected types
+                currentSelections.forEach { type ->
+                    if (type !in newSelections) {
+                        resourceTypesManager.removeResourceType(type)
+                    }
+                }
+                
+                LOG.info { "finished updating resource types" }
+            }
+        } catch (e: Exception) {
+            LOG.warn(e) { "Failed to show dialog" }
+        }
+    }
+
+    companion object {
+        private val LOG = getLogger<AddResourceTypeAction>()
+    }
+}
 
 class RemoveResourceTypeAction : AnAction(
     message("cloudformation.explorer.resources.remove_type"),
@@ -162,7 +236,7 @@ class ImportResourceStateAction : AnAction(
 class CloneResourceStateAction : AnAction(
     message("cloudformation.explorer.resources.clone"),
     null,
-    AllIcons.Actions.Copy
+    AllIcons.Vcs.Clone
 ) {
     override fun getActionUpdateThread() = ActionUpdateThread.EDT
 
@@ -180,6 +254,33 @@ class CloneResourceStateAction : AnAction(
         val resourceNodes = selectedNodes?.filterIsInstance<ResourceNode>() ?: return
         
         resourcesManager.cloneResourceState(resourceNodes)
+    }
+}
+
+class CopyResourceIdentifierAction : AnAction(
+    message("cloudformation.explorer.resources.copy_identifier"),
+    null,
+    AllIcons.Actions.Copy
+) {
+    override fun getActionUpdateThread() = ActionUpdateThread.EDT
+
+    override fun update(e: AnActionEvent) {
+        val selectedNodes = e.getData(ExplorerTreeToolWindowDataKeys.SELECTED_NODES)
+        val hasResourceNode = selectedNodes?.filterIsInstance<ResourceNode>()?.size == 1
+        e.presentation.isEnabled = hasResourceNode
+    }
+
+    override fun actionPerformed(e: AnActionEvent) {
+        val selectedNodes = e.getData(ExplorerTreeToolWindowDataKeys.SELECTED_NODES)
+        val resourceNode = selectedNodes?.filterIsInstance<ResourceNode>()?.firstOrNull() ?: return
+        
+        // Copy to clipboard
+        val selection = StringSelection(resourceNode.resourceIdentifier)
+        CopyPasteManager.getInstance().setContents(selection)
+        
+        // Show status message (similar to VS Code)
+        // Note: JetBrains doesn't have a direct equivalent to VS Code's status bar message
+        // but the copy operation will be visible in the clipboard
     }
 }
 

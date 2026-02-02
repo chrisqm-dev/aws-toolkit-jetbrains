@@ -18,6 +18,10 @@
         <action id="aws.toolkit.cloudformation.stacks.load_more"
                 class="software.aws.toolkits.jetbrains.services.cfnlsp.explorer.actions.LoadMoreStacksAction"/>
 
+        <action id="aws.toolkit.cloudformation.resources.add_type"
+                class="software.aws.toolkits.jetbrains.services.cfnlsp.explorer.actions.AddResourceTypeAction"
+                text="Add Resource Types To List"/>
+
         <action id="aws.toolkit.cloudformation.resources.refresh_type"
                 class="software.aws.toolkits.jetbrains.services.cfnlsp.explorer.actions.RefreshResourceTypeAction"
                 text="Refresh Resource Type"/>
@@ -42,6 +46,10 @@
                 class="software.aws.toolkits.jetbrains.services.cfnlsp.explorer.actions.CloneResourceStateAction"
                 text="Clone Resource State"/>
 
+        <action id="aws.toolkit.cloudformation.resources.copy_identifier"
+                class="software.aws.toolkits.jetbrains.services.cfnlsp.explorer.actions.CopyResourceIdentifierAction"
+                text="Copy Resource Identifier"/>
+
         <action id="aws.toolkit.cloudformation.resources.stack_info"
                 class="software.aws.toolkits.jetbrains.services.cfnlsp.explorer.actions.GetStackManagementInfoAction"
                 text="Get Stack Management Info"/>
@@ -56,6 +64,7 @@
         </group>
 
         <group id="aws.toolkit.cloudformation.resources.actions">
+            <reference ref="aws.toolkit.cloudformation.resources.add_type"/>
             <reference ref="aws.toolkit.cloudformation.resources.refresh_all_loaded"/>
         </group>
 
@@ -68,6 +77,7 @@
         <group id="aws.toolkit.cloudformation.resources.resource.actions">
             <reference ref="aws.toolkit.cloudformation.resources.import"/>
             <reference ref="aws.toolkit.cloudformation.resources.clone"/>
+            <reference ref="aws.toolkit.cloudformation.resources.copy_identifier"/>
             <reference ref="aws.toolkit.cloudformation.resources.stack_info"/>
         </group>
     </actions>

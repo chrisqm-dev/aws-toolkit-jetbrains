@@ -20,6 +20,7 @@ import software.aws.toolkits.jetbrains.services.cfnlsp.ui.ResourceTypeSelectionD
 import software.aws.toolkits.jetbrains.core.explorer.devToolsTab.nodes.ActionGroupOnRightClick
 import software.aws.toolkits.jetbrains.services.cfnlsp.resources.ResourcesManager
 import software.aws.toolkits.jetbrains.services.cfnlsp.stacks.StacksManager
+import software.aws.toolkits.resources.AwsToolkitBundle.message
 import java.awt.event.MouseEvent
 
 internal class ResourceTypeNode(
@@ -76,7 +77,7 @@ internal class LoadingResourcesNode(
 ) : AbstractTreeNode<String>(nodeProject, "loading") {
 
     override fun update(presentation: PresentationData) {
-        presentation.addText("Loading $resourceType resources...", SimpleTextAttributes.GRAYED_ATTRIBUTES)
+        presentation.addText(message("cloudformation.explorer.resources.loading", resourceType), SimpleTextAttributes.GRAYED_ATTRIBUTES)
         presentation.setIcon(AllIcons.Process.Step_1)
     }
 
@@ -90,7 +91,7 @@ internal class NoResourcesNode(
 ) : AbstractTreeNode<String>(nodeProject, "no-resources") {
 
     override fun update(presentation: PresentationData) {
-        presentation.addText("No $resourceType resources found", SimpleTextAttributes.GRAYED_ATTRIBUTES)
+        presentation.addText(message("cloudformation.explorer.resources.no_resources", resourceType), SimpleTextAttributes.GRAYED_ATTRIBUTES)
         presentation.setIcon(AllIcons.General.Settings)
     }
 
@@ -102,7 +103,7 @@ internal class LoadMoreResourcesNode(
     nodeProject: Project,
     private val resourceType: String,
     private val resourcesManager: ResourcesManager,
-) : AbstractActionTreeNode(nodeProject, "Load More...", AllIcons.General.Add) {
+) : AbstractActionTreeNode(nodeProject, message("cloudformation.explorer.resources.load_more"), AllIcons.General.Add) {
 
     override fun onDoubleClick(event: MouseEvent) {
         resourcesManager.loadMoreResources(resourceType)
@@ -131,7 +132,7 @@ internal class ResourceNode(
 internal class AddResourceTypeNode(
     nodeProject: Project,
     private val resourceTypesManager: software.aws.toolkits.jetbrains.services.cfnlsp.resources.ResourceTypesManager,
-) : AbstractActionTreeNode(nodeProject, "Add Resource Type...", AllIcons.General.Add) {
+) : AbstractActionTreeNode(nodeProject, message("cloudformation.explorer.resources.add_type_node"), AllIcons.General.Add) {
     companion object {
         private val LOG = getLogger<AddResourceTypeNode>()
     }

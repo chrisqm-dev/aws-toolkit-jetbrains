@@ -27,8 +27,9 @@ class ResourcesNodeTest {
         val node = ResourcesNode(projectRule.project, mockResourceTypesManager, mockResourcesManager)
         val children = node.children
 
-        assertThat(children).hasSize(1)
-        assertThat(children.first()).isInstanceOf(AddResourceTypeNode::class.java)
+        assertThat(children).hasSize(1) // Only AddResourceTypeNode
+        assertThat(children.filterIsInstance<AddResourceTypeNode>()).hasSize(1)
+        assertThat(children.filterIsInstance<ResourceTypeNode>()).hasSize(0)
     }
 
     @Test
@@ -43,9 +44,9 @@ class ResourcesNodeTest {
         val node = ResourcesNode(projectRule.project, mockResourceTypesManager, mockResourcesManager)
         val children = node.children
 
-        assertThat(children).hasSize(3) // AddResourceTypeNode + 2 ResourceTypeNodes
+        assertThat(children).hasSize(2) // Only 2 ResourceTypeNodes (no AddResourceTypeNode when types are selected)
         assertThat(children.filterIsInstance<ResourceTypeNode>()).hasSize(2)
-        assertThat(children.filterIsInstance<AddResourceTypeNode>()).hasSize(1)
+        assertThat(children.filterIsInstance<AddResourceTypeNode>()).hasSize(0) // No AddResourceTypeNode when types are selected
     }
 
     @Test

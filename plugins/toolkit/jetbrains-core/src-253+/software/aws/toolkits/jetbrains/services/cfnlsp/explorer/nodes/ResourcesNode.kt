@@ -32,9 +32,13 @@ internal class ResourcesNode(
     override fun getChildren(): Collection<AbstractTreeNode<*>> {
         val nodes = mutableListOf<AbstractTreeNode<*>>()
 
-        nodes.add(AddResourceTypeNode(project, resourceTypesManager))
+        // Only show AddResourceTypeNode if no resource types are selected
+        val selectedTypes = resourceTypesManager.getSelectedResourceTypes()
+        if (selectedTypes.isEmpty()) {
+            nodes.add(AddResourceTypeNode(project, resourceTypesManager))
+        }
 
-        resourceTypesManager.getSelectedResourceTypes().forEach { typeName ->
+        selectedTypes.forEach { typeName ->
             nodes.add(ResourceTypeNode(project, typeName, resourcesManager))
         }
 
