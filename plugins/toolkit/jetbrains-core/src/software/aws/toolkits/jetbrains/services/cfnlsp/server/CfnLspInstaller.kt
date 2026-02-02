@@ -7,6 +7,7 @@ import com.intellij.ide.util.PropertiesComponent
 import software.aws.toolkit.core.utils.getLogger
 import software.aws.toolkit.core.utils.debug
 import software.aws.toolkit.core.utils.error
+import software.aws.toolkit.core.utils.getLogger
 import software.aws.toolkit.core.utils.info
 import software.aws.toolkit.core.utils.warn
 import software.aws.toolkits.jetbrains.core.lsp.getToolkitsCacheRoot

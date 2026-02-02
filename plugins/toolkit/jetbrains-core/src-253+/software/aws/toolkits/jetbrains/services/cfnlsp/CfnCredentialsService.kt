@@ -29,9 +29,7 @@ import software.aws.toolkit.jetbrains.core.credentials.ToolkitConnection
 import software.aws.toolkit.jetbrains.core.credentials.ToolkitConnectionManagerListener
 import software.aws.toolkits.jetbrains.services.cfnlsp.explorer.CloudFormationRegionManager
 import software.aws.toolkits.jetbrains.services.cfnlsp.protocol.UpdateCredentialsParams
-import software.aws.toolkits.jetbrains.services.cfnlsp.server.CfnLspServerSupportProvider
 import software.aws.toolkits.jetbrains.settings.CfnLspSettingsChangeListener
-import software.amazon.awssdk.auth.credentials.AwsSessionCredentials
 import java.security.SecureRandom
 import java.util.Base64
 import javax.crypto.SecretKey
@@ -115,9 +113,12 @@ internal class CfnCredentialsService(private val project: Project) : Disposable 
     }
 
     private fun subscribeToSettingsChanges(appBus: com.intellij.util.messages.MessageBusConnection) {
-        appBus.subscribe(CfnLspSettingsChangeListener.TOPIC, CfnLspSettingsChangeListener {
-            notifyConfigurationChanged()
-        })
+        appBus.subscribe(
+            CfnLspSettingsChangeListener.TOPIC,
+            CfnLspSettingsChangeListener {
+                notifyConfigurationChanged()
+            }
+        )
     }
 
     @Suppress("UnstableApiUsage")
@@ -194,5 +195,5 @@ internal data class IamCredentials(
     val region: String,
     val accessKeyId: String,
     val secretAccessKey: String,
-    val sessionToken: String? = null
+    val sessionToken: String? = null,
 )
