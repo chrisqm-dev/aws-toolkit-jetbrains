@@ -6,7 +6,7 @@ package software.aws.toolkits.jetbrains.services.cfnlsp.server
 internal class CfnLspException(
     message: String,
     val errorCode: ErrorCode,
-    cause: Throwable? = null
+    cause: Throwable? = null,
 ) : Exception(message, cause) {
 
     enum class ErrorCode {
