@@ -149,20 +149,35 @@ internal class AddResourceTypeNode(
     private fun showDialog() {
         val availableTypes = resourceTypesManager.getAvailableResourceTypes()
         val selectedTypes = resourceTypesManager.getSelectedResourceTypes()
-        val unselectedTypes = availableTypes.filter { it !in selectedTypes }
-
-        if (unselectedTypes.isEmpty()) {
+        // Show ALL available types, not just unselected ones
+        
+        if (availableTypes.isEmpty()) {
             return
         }
 
         LOG.info { "starting dialog" }
         try {
-            val dialog = ResourceTypeSelectionDialog(project, unselectedTypes, selectedTypes)
+            val dialog = ResourceTypeSelectionDialog(project, availableTypes, selectedTypes)
             if (dialog.showAndGet()) {
-                dialog.selectedResourceTypes.forEach { type ->
-                    resourceTypesManager.addResourceType(type)
+                // Handle both additions and removals
+                val newSelections = dialog.selectedResourceTypes.toSet()
+                val currentSelections = selectedTypes
+                
+                // Add new selections
+                newSelections.forEach { type ->
+                    if (type !in currentSelections) {
+                        resourceTypesManager.addResourceType(type)
+                    }
                 }
-                LOG.info { "finished adding resource types" }
+                
+                // Remove deselected types
+                currentSelections.forEach { type ->
+                    if (type !in newSelections) {
+                        resourceTypesManager.removeResourceType(type)
+                    }
+                }
+                
+                LOG.info { "finished updating resource types" }
             }
         } catch (e: Exception) {
             LOG.error(e) { "Failed to show dialog" }

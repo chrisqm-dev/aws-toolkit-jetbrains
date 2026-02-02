@@ -5,9 +5,11 @@ package software.aws.toolkits.jetbrains.services.cfnlsp.ui
 
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
+import com.intellij.psi.codeStyle.NameUtil
 import com.intellij.ui.CheckBoxList
+import com.intellij.ui.ListSpeedSearch
+import com.intellij.ui.SearchTextField
 import com.intellij.ui.components.JBScrollPane
-import com.intellij.ui.components.JBTextField
 import software.aws.toolkit.core.utils.getLogger
 import software.aws.toolkit.core.utils.info
 import software.aws.toolkits.resources.AwsToolkitBundle.message
@@ -28,8 +30,9 @@ internal class ResourceTypeSelectionDialog(
         private set
 
     private val typesList = CheckBoxList<String>()
-    private val searchField = JBTextField()
-    private val allUnselectedTypes = availableTypes.filter { it !in selectedTypes }
+    private val searchField = SearchTextField(false)
+    private val allAvailableTypes = availableTypes
+    private val currentSelections = selectedTypes.toMutableSet() // Track selections separately
 
     init {
         title = message("cloudformation.explorer.resources.dialog.title")
@@ -39,16 +42,27 @@ internal class ResourceTypeSelectionDialog(
     }
 
     private fun setupList() {
-        allUnselectedTypes.forEach { type ->
-            typesList.addItem(type, type, false)
+        // Add listener to track checkbox changes
+        typesList.setCheckBoxListListener { index, value ->
+            val item = typesList.getItemAt(index)
+            if (item != null) {
+                if (value) {
+                    currentSelections.add(item)
+                } else {
+                    currentSelections.remove(item)
+                }
+            }
         }
+        
+        // Initial population - this will show pre-selected items as checked
+        filterList()
 
         LOG.info { "Set up list" }
     }
 
     private fun setupSearch() {
-        searchField.emptyText.text = "Search resource types..."
-        searchField.document.addDocumentListener(object : DocumentListener {
+        searchField.textEditor.emptyText.text = "Search resource types..."
+        searchField.addDocumentListener(object : DocumentListener {
             override fun insertUpdate(e: DocumentEvent?) = filterList()
             override fun removeUpdate(e: DocumentEvent?) = filterList()
             override fun changedUpdate(e: DocumentEvent?) = filterList()
@@ -58,17 +72,24 @@ internal class ResourceTypeSelectionDialog(
     }
 
     private fun filterList() {
-        val searchText = searchField.text.lowercase()
+        val searchText = searchField.text
         typesList.clear()
         
         val filteredTypes = if (searchText.isEmpty()) {
-            allUnselectedTypes
+            allAvailableTypes
         } else {
-            allUnselectedTypes.filter { it.lowercase().contains(searchText) }
+            val matcher = NameUtil.buildMatcher("*$searchText*", NameUtil.MatchingCaseSensitivity.NONE)
+            allAvailableTypes.filter { resourceType ->
+                // Try matching the full type
+                matcher.matches(resourceType) ||
+                // Try matching without AWS:: prefix for easier searching
+                matcher.matches(resourceType.removePrefix("AWS::"))
+            }
         }
         
         filteredTypes.forEach { type ->
-            typesList.addItem(type, type, false)
+            val isSelected = type in currentSelections // Use tracked selections
+            typesList.addItem(type, type, isSelected)
         }
     }
 
@@ -83,7 +104,7 @@ internal class ResourceTypeSelectionDialog(
     }
 
     override fun doOKAction() {
-        selectedResourceTypes = typesList.getCheckedItems()
+        selectedResourceTypes = currentSelections.toList() // Use tracked selections
         super.doOKAction()
     }
 
