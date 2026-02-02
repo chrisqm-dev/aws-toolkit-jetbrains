@@ -31,10 +31,9 @@ data class ListResourcesResult(
     val resources: List<ResourceSummary>,
 )
 
-// TODO: Resource State Operations
-enum class ResourceStatePurpose {
-    IMPORT,
-    CLONE,
+enum class ResourceStatePurpose(val value: String) {
+    IMPORT("Import"),
+    CLONE("Clone"),
 }
 
 data class ResourceSelection(
@@ -45,7 +44,7 @@ data class ResourceSelection(
 data class ResourceStateParams(
     val textDocument: TextDocumentIdentifier,
     val resourceSelections: List<ResourceSelection>? = null,
-    val purpose: ResourceStatePurpose,
+    val purpose: String,
     val parentResourceType: String? = null,
 )
 
@@ -75,7 +74,9 @@ data class RefreshResourcesResult(
 )
 
 data class ResourceStackManagementResult(
-    val isManaged: Boolean,
+    val physicalResourceId: String,
+    val managedByStack: Boolean? = null,
     val stackName: String? = null,
     val stackId: String? = null,
+    val error: String? = null
 )

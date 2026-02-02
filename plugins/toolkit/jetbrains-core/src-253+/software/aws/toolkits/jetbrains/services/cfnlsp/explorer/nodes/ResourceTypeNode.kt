@@ -34,7 +34,7 @@ internal class ResourceTypeNode(
 
     override fun update(presentation: PresentationData) {
         presentation.addText(resourceType, SimpleTextAttributes.REGULAR_ATTRIBUTES)
-        presentation.setIcon(AwsIcons.Resources.CLOUDFORMATION_STACK)
+        presentation.setIcon(null) // Remove any default icon
 
         // Only show count if resources have been loaded (dropdown was expanded)
         if (resourcesManager.isLoaded(resourceType)) {
@@ -114,14 +114,13 @@ internal class LoadMoreResourcesNode(
 
 internal class ResourceNode(
     nodeProject: Project,
-    private val resourceType: String,
-    private val resourceIdentifier: String,
+    val resourceType: String,
+    val resourceIdentifier: String,
 ) : AbstractTreeNode<String>(nodeProject, resourceIdentifier), ActionGroupOnRightClick {
     override fun actionGroupName(): String = "aws.toolkit.cloudformation.resources.resource.actions"
 
     override fun update(presentation: PresentationData) {
         presentation.addText(resourceIdentifier, SimpleTextAttributes.REGULAR_ATTRIBUTES)
-        presentation.setIcon(AwsIcons.Resources.CLOUDFORMATION_STACK)
         presentation.tooltip = "$resourceType: $resourceIdentifier"
     }
 

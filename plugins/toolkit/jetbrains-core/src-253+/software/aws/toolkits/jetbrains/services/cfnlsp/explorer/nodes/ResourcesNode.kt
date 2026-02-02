@@ -26,7 +26,6 @@ internal class ResourcesNode(
         val countText = if (selectedCount > 0) " ($selectedCount)" else ""
         presentation.addText(message("cloudformation.explorer.resources"), SimpleTextAttributes.REGULAR_ATTRIBUTES)
         presentation.addText(countText, SimpleTextAttributes.GRAY_ATTRIBUTES)
-        presentation.setIcon(AllIcons.Nodes.Folder)
     }
 
     override fun isAlwaysShowPlus(): Boolean = true

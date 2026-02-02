@@ -12,6 +12,7 @@ import software.aws.toolkit.core.utils.getLogger
 import software.aws.toolkit.core.utils.info
 import software.aws.toolkit.core.utils.warn
 import software.aws.toolkits.jetbrains.core.explorer.ExplorerTreeToolWindowDataKeys
+import software.aws.toolkits.jetbrains.services.cfnlsp.explorer.nodes.ResourceNode
 import software.aws.toolkits.jetbrains.services.cfnlsp.explorer.nodes.ResourceTypeNode
 import software.aws.toolkits.jetbrains.services.cfnlsp.resources.ResourceTypesManager
 import software.aws.toolkits.jetbrains.services.cfnlsp.resources.ResourcesManager
@@ -131,5 +132,77 @@ class SearchResourceAction : AnAction(
         
         // Search for the resource
         resourcesManager.searchResource(resourceTypeNode.resourceType, identifier.trim())
+    }
+}
+
+class ImportResourceStateAction : AnAction(
+    message("cloudformation.resources.import"),
+    null,
+    AllIcons.Actions.Download
+) {
+    override fun getActionUpdateThread() = ActionUpdateThread.EDT
+
+    override fun update(e: AnActionEvent) {
+        val selectedNodes = e.getData(ExplorerTreeToolWindowDataKeys.SELECTED_NODES)
+        val hasResourceNode = selectedNodes?.filterIsInstance<ResourceNode>()?.isNotEmpty() == true
+        e.presentation.isEnabled = hasResourceNode
+    }
+
+    override fun actionPerformed(e: AnActionEvent) {
+        val project = e.project ?: return
+        val resourcesManager = ResourcesManager.getInstance(project)
+        
+        val selectedNodes = e.getData(ExplorerTreeToolWindowDataKeys.SELECTED_NODES)
+        val resourceNodes = selectedNodes?.filterIsInstance<ResourceNode>() ?: return
+        
+        resourcesManager.importResourceState(resourceNodes)
+    }
+}
+
+class CloneResourceStateAction : AnAction(
+    message("cloudformation.resources.clone"),
+    null,
+    AllIcons.Actions.Copy
+) {
+    override fun getActionUpdateThread() = ActionUpdateThread.EDT
+
+    override fun update(e: AnActionEvent) {
+        val selectedNodes = e.getData(ExplorerTreeToolWindowDataKeys.SELECTED_NODES)
+        val hasResourceNode = selectedNodes?.filterIsInstance<ResourceNode>()?.isNotEmpty() == true
+        e.presentation.isEnabled = hasResourceNode
+    }
+
+    override fun actionPerformed(e: AnActionEvent) {
+        val project = e.project ?: return
+        val resourcesManager = ResourcesManager.getInstance(project)
+        
+        val selectedNodes = e.getData(ExplorerTreeToolWindowDataKeys.SELECTED_NODES)
+        val resourceNodes = selectedNodes?.filterIsInstance<ResourceNode>() ?: return
+        
+        resourcesManager.cloneResourceState(resourceNodes)
+    }
+}
+
+class GetStackManagementInfoAction : AnAction(
+    message("cloudformation.resources.stack_info"),
+    null,
+    AllIcons.Actions.Properties
+) {
+    override fun getActionUpdateThread() = ActionUpdateThread.EDT
+
+    override fun update(e: AnActionEvent) {
+        val selectedNodes = e.getData(ExplorerTreeToolWindowDataKeys.SELECTED_NODES)
+        val hasResourceNode = selectedNodes?.filterIsInstance<ResourceNode>()?.size == 1
+        e.presentation.isEnabled = hasResourceNode
+    }
+
+    override fun actionPerformed(e: AnActionEvent) {
+        val project = e.project ?: return
+        val resourcesManager = ResourcesManager.getInstance(project)
+        
+        val selectedNodes = e.getData(ExplorerTreeToolWindowDataKeys.SELECTED_NODES)
+        val resourceNode = selectedNodes?.filterIsInstance<ResourceNode>()?.firstOrNull() ?: return
+        
+        resourcesManager.getStackManagementInfo(resourceNode)
     }
 }

@@ -54,8 +54,6 @@ interface CfnLspServer : LanguageServer {
     @JsonRequest("aws/cfn/resources/list")
     fun listResources(params: ListResourcesParams): CompletableFuture<ListResourcesResult>
 
-    // TODO: Resource State Operations
-
     @JsonRequest("aws/cfn/resources/state")
     fun getResourceState(params: ResourceStateParams): CompletableFuture<ResourceStateResult>
 
