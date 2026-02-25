@@ -5,15 +5,22 @@ package software.aws.toolkits.jetbrains.services.cfnlsp.server
 
 import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.notification.NotificationAction
+import com.intellij.openapi.editor.Document
+import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.openapi.vfs.VirtualFileManager
 import com.intellij.platform.lsp.api.Lsp4jClient
 import com.intellij.platform.lsp.api.LspServerNotificationsHandler
 import com.intellij.platform.lsp.api.LspServerSupportProvider
 import com.intellij.platform.lsp.api.ProjectWideLspServerDescriptor
+import com.intellij.psi.codeStyle.CodeStyleSettings
 import org.eclipse.lsp4j.ConfigurationItem
 import org.eclipse.lsp4j.MessageParams
+import org.eclipse.lsp4j.Position
+import org.eclipse.lsp4j.PublishDiagnosticsParams
+import org.eclipse.lsp4j.Range
 import org.eclipse.lsp4j.services.LanguageServer
 import software.aws.toolkit.core.utils.getLogger
 import software.aws.toolkit.core.utils.info
@@ -55,7 +62,7 @@ class CfnLspServerDescriptor private constructor(project: Project) :
     override fun isSupportedFile(file: VirtualFile) = file.isCfnTemplate()
 
     override fun createLsp4jClient(handler: LspServerNotificationsHandler): Lsp4jClient =
-        Lsp4jClient(CfnLspNotificationsHandler(handler))
+        CfnLspClient(CfnLspNotificationsHandler(handler), project)
 
     override fun createCommandLine(): GeneralCommandLine {
         val serverPath = try {
@@ -78,6 +85,7 @@ class CfnLspServerDescriptor private constructor(project: Project) :
 
         return GeneralCommandLine(nodePath.toString(), serverPath.toString(), "--stdio")
             .withWorkDirectory(serverPath.parent.toString())
+            .withRedirectErrorStream(false)
     }
 
     private fun resolveNodeRuntime(): Path {
@@ -191,7 +199,7 @@ class CfnLspServerDescriptor private constructor(project: Project) :
     )
 
     private fun buildEditorConfiguration(): Map<String, Any> {
-        val indentOptions = com.intellij.psi.codeStyle.CodeStyleSettings.getDefaults().indentOptions
+        val indentOptions = CodeStyleSettings.getDefaults().indentOptions
         return mapOf(
             "tabSize" to indentOptions.TAB_SIZE,
             "insertSpaces" to !indentOptions.USE_TAB_CHARACTER,
@@ -216,6 +224,72 @@ private class CfnLspNotificationsHandler(
 ) : LspServerNotificationsHandler by delegate {
     override fun logMessage(params: MessageParams) {
         LOG.info { "CloudFormation language server [${params.type}]: ${params.message}" }
+    }
+
+    override fun publishDiagnostics(params: PublishDiagnosticsParams) {
+        // Expand zero-width ranges to highlight entire words
+        val expandedDiagnostics = params.diagnostics.map { diagnostic ->
+            if (isZeroWidth(diagnostic.range)) {
+                diagnostic.apply {
+                    range = expandToWord(params.uri, diagnostic.range)
+                }
+            } else {
+                diagnostic
+            }
+        }
+
+        delegate.publishDiagnostics(PublishDiagnosticsParams(params.uri, expandedDiagnostics))
+    }
+
+    private fun isZeroWidth(range: Range): Boolean =
+        range.start.line == range.end.line && range.start.character == range.end.character
+
+    private fun expandToWord(uri: String, range: Range): Range {
+        val document = getDocument(uri) ?: return range
+        val lineText = getLineText(document, range.start.line) ?: return range
+        val pos = range.start.character
+
+        if (pos !in 0 until lineText.length) return range
+
+        // Find word boundaries
+        val start = findWordStart(lineText, pos)
+        val end = findWordEnd(lineText, pos)
+
+        return Range(
+            Position(range.start.line, start),
+            Position(range.start.line, end)
+        )
+    }
+
+    private fun getDocument(uri: String): Document? {
+        val virtualFile = VirtualFileManager.getInstance().findFileByUrl(uri) ?: return null
+        return FileDocumentManager.getInstance().getDocument(virtualFile)
+    }
+
+    private fun getLineText(document: Document, line: Int): String? {
+        if (line < 0 || line >= document.lineCount) return null
+        val startOffset = document.getLineStartOffset(line)
+        val endOffset = document.getLineEndOffset(line)
+        return document.getText(com.intellij.openapi.util.TextRange(startOffset, endOffset))
+    }
+
+    private fun isCloudFormationWordChar(char: Char): Boolean =
+        char.isLetterOrDigit() || char in "_-:"
+
+    private fun findWordStart(line: String, pos: Int): Int {
+        var start = pos
+        while (start > 0 && isCloudFormationWordChar(line[start - 1])) {
+            start--
+        }
+        return start
+    }
+
+    private fun findWordEnd(line: String, pos: Int): Int {
+        var end = pos
+        while (end < line.length && isCloudFormationWordChar(line[end])) {
+            end++
+        }
+        return maxOf(end, pos + 1) // Ensure at least 1 character width
     }
 
     companion object {
