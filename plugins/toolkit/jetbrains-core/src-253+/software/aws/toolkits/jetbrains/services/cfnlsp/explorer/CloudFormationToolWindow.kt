@@ -9,7 +9,10 @@ import com.intellij.openapi.application.runInEdt
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
+import com.intellij.platform.lsp.api.LspServer
 import com.intellij.platform.lsp.api.LspServerManager
+import com.intellij.platform.lsp.api.LspServerManagerListener
+import com.intellij.platform.lsp.api.LspServerState
 import software.aws.toolkits.jetbrains.ToolkitPlaces
 import software.aws.toolkits.jetbrains.core.credentials.CredentialManager
 import software.aws.toolkits.jetbrains.core.credentials.ToolkitConnection
@@ -52,7 +55,7 @@ internal class CloudFormationToolWindow(private val project: Project) : Abstract
         }
         subscribeToConnectionChanges()
         updateContent()
-        ensureLspServerStarted()
+        ensureLspServerStartedAndLoadData()
     }
 
     private fun subscribeToConnectionChanges() {
@@ -81,11 +84,34 @@ internal class CloudFormationToolWindow(private val project: Project) : Abstract
         }
     }
 
-    private fun ensureLspServerStarted() {
-        LspServerManager.getInstance(project).ensureServerStarted(
-            CfnLspServerSupportProvider::class.java,
-            CfnLspServerDescriptor.getInstance(project)
-        )
+    private fun ensureLspServerStartedAndLoadData() {
+        // Fix for "Nothing to Show" issue: Wait for LSP server to be ready before tree loads data
+        val lspManager = LspServerManager.getInstance(project)
+        val descriptor = CfnLspServerDescriptor.getInstance(project)
+        
+        // Ensure server is started
+        lspManager.ensureServerStarted(CfnLspServerSupportProvider::class.java, descriptor)
+        
+        // Check if server is already running
+        val servers = lspManager.getServersForProvider(CfnLspServerSupportProvider::class.java)
+        if (servers.any { it.state == LspServerState.Running }) {
+            // Server already ready - tree will load data naturally
+            return
+        } else {
+            // Wait for server to be ready, then let tree load naturally
+            @Suppress("UnstableApiUsage")
+            lspManager.addLspServerManagerListener(object : LspServerManagerListener {
+                override fun serverStateChanged(lspServer: LspServer) {
+                    if (lspServer.descriptor::class == descriptor::class && 
+                        lspServer.state == LspServerState.Running) {
+                        runInEdt { 
+                            // Server is ready - trigger tree refresh to load data
+                            redrawContent()
+                        }
+                    }
+                }
+            }, this)
+        }
     }
 
     companion object {
